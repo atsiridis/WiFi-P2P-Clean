@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">WiFi-P2P</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_add_service_request">Add Service Request</string>
+    <string name="btn_discover">Find Peers</string>
+    <string name="btn_srv_discover">Start Service Discovery</string>
+    <string name="btn_exit">Quit</string>
+    <string name="btn_srv_add_dns"> Add DNS Service</string>
+    <string name="btn_srv_add_upnp">Add UPnP Service</string>
+    <string name="btn_clear_services">Clear Local Services</string>
+    <string name="btn_clear_requests">Clear Service Requests</string>
+    <string name="btn_send">Send Data</string>
+    <string name="btn_status">Log Status</string>
+    <string name="btn_start_peer_discover">Start Peer Discovery</string>
+    <string name="btn_stop_peer_discover">Stop Peer Discovery</string>
+</resources>
