@@ -4,10 +4,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.NetworkInfo;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
-import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager.*;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
@@ -107,7 +105,7 @@ public class NSDChannel {
 
     /* Receive Data */
 
-    private void receiveData(List<String> services, String remoteAddress) {
+    private void receiveData(List<String> services, String remoteSID) {
         int sequenceNumber = -1;
         int newSequenceNumber;
         String base64data = "";
@@ -123,10 +121,10 @@ public class NSDChannel {
             }
         }
 
-        // TODO: Check for expected sequence number
-        if (sequenceNumber != -1) {
+        if (sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
             byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
-            // TODO: Write data to source specific buffer
+            // TODO: Write to source specific buffer until complete packet or write directly to application
+            // TODO: Update service request and peer object
         } else {
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
             System.exit(UNSPECIFIED_ERROR);
