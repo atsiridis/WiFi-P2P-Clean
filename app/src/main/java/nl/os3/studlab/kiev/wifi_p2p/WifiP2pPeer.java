@@ -4,24 +4,19 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pServiceRequest;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 
 public class WifiP2pPeer {
-    private final String remoteAddress;
     private int sendSequence = 0;
     private int recvSequence = 0;
-    private String localSID;
-    // TODO: Would this be better as a queue?
-    private Map<Integer,WifiP2pServiceInfo> services;
+    private Map<Integer,WifiP2pServiceInfo> serviceMap = new HashMap<>();
     private WifiP2pServiceRequest currentServiceRequest;
-    // TODO: Buffer needs to be a queue
-    private byte[] recvBuffer;
     private long lastSeen;
 
     WifiP2pPeer(WifiP2pDevice peer) {
-        remoteAddress = peer.deviceAddress;
-        // TODO: Check that prefix matches
-        localSID = peer.deviceName.substring(7);
         resetLastSeen();
     }
 
@@ -30,9 +25,6 @@ public class WifiP2pPeer {
     }
     public long getLastSeen(){
         return lastSeen;
-    }
-    public String getSID() {
-        return localSID;
     }
 
     public int getRecvSequence() {
@@ -43,11 +35,34 @@ public class WifiP2pPeer {
         recvSequence++;
     }
 
-    public int getSendSequence() {
+    public int getNextSendSequence() {
         return sendSequence;
     }
 
-    public void incrementSendSequence() {
-        sendSequence++;
+    public Collection<WifiP2pServiceInfo> getAllServices() {
+        Collection<Integer> keys = serviceMap.keySet();
+        Collection<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
+
+        for (int key : keys) {
+            serviceInfos.add(serviceMap.get(key));
+        }
+        return serviceInfos;
+    }
+
+    public Collection<WifiP2pServiceInfo> removeServicesBefore(int sequenceNumber) {
+        Collection<Integer> keys = serviceMap.keySet();
+        Collection<WifiP2pServiceInfo> removedServices = new ArrayList<>();
+
+        for (int key : keys) {
+            if (key < sequenceNumber) {
+                removedServices.add(serviceMap.get(key));
+                serviceMap.remove(key);
+            }
+        }
+        return removedServices;
+    }
+
+    public void addService(WifiP2pServiceInfo serviceInfo) {
+        serviceMap.put(sendSequence++, serviceInfo);
     }
 }
