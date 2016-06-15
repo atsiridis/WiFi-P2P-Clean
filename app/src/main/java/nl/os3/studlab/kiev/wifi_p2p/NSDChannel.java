@@ -30,14 +30,13 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
+// TODO: Do we need to...
 // TODO: Implement message (packet) passing?
-// TODO: Add Local Service Cleanup using Acknowledgements
-// TODO: Need Class To Track State for Peers
-// TODO: Need to implement timeouts using Timers
-// TODO: Implement Broadcast Message
-// TODO: How will SIDs be used with UUIDs
-// TODO: How to keep device discovery working until we quit
 // TODO: What is the format of addresses received from application?
+// TODO: Implement Broadcast Messaging?
+
+// TODO: We need to...
+// TODO: Add Local Service Cleanup using Acknowledgements
 // TODO: Determine how often to rotate service requests on legacy devices
 
 public class NSDChannel {
@@ -343,6 +342,7 @@ public class NSDChannel {
             }
         });
     }
+
     private void removeLocalService(WifiP2pServiceInfo serviceinfo) {
         manager.removeLocalService(channel, serviceinfo ,new ActionListener() {
             @Override
@@ -421,7 +421,9 @@ public class NSDChannel {
             }
         }
     }
+
     private void checkLostPeers() {
+        // TODO: Delete service requests for timed out peer
         Log.d(TAG,"Checking for lost peers");
         checkLastSeenPeer = new Timer();
         checkLastSeenPeer.schedule(new TimerTask() {
@@ -443,49 +445,48 @@ public class NSDChannel {
         },checkPeerLostInterval,checkPeerLostInterval);
     }
 
-
     private BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive (Context context, Intent intent){
-            String action = intent.getAction();
-            if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
-                Log.d(TAG, "INTENT:WIFI_P2P_STATE_CHANGED_ACTION");
-                int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
-                if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
-                    Log.d(TAG, "WiFi P2P Enabled");
-                } else if (state == WifiP2pManager.WIFI_P2P_STATE_DISABLED) {
-                    Log.d(TAG, "WiFi P2P Disabled");
-                }
-            } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-                Log.d(TAG, "INTENT:WIFI_P2P_PEERS_CHANGED_ACTION");
-                manager.requestPeers(channel, new WifiP2pManager.PeerListListener() {
-                    @Override
-                    public void onPeersAvailable(WifiP2pDeviceList peers) {
-                        updatePeerList(peers);
-                    }
-                });
-            /*
-            } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-                Log.d(TAG, "INTENT:WIFI_P2P_CONNECTION_CHANGED_ACTION");
-                WifiP2pInfo conState = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_INFO);
-                NetworkInfo netState = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
-                Log.d(TAG, "EXTRA_WIFI_P2P_INFO:" + conState.toString());
-                Log.d(TAG, "EXTRA_NETWORK_INFO:" + netState.toString());
-            */
-            } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-                Log.d(TAG, "INTENT:WIFI_P2P_THIS_DEVICE_CHANGED_ACTION");
-                WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
-                Log.d(TAG, "Local Device: " + device.deviceName + "(" + device.deviceAddress + ")");
-            } else if (WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION.equals(action)) {
-                Log.d(TAG, "INTENT:WIFI_P2P_DISCOVERY_CHANGED_ACTION");
-                int state = intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, -1);
-                if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
-                    Log.d(TAG, "Device Discovery Has Started");
-                } else if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED) {
-                    Log.d(TAG, "Device Discovery Has Stopped");
-                    startDeviceDiscovery();
-                }
+        String action = intent.getAction();
+        if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
+            Log.d(TAG, "INTENT:WIFI_P2P_STATE_CHANGED_ACTION");
+            int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
+            if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
+                Log.d(TAG, "WiFi P2P Enabled");
+            } else if (state == WifiP2pManager.WIFI_P2P_STATE_DISABLED) {
+                Log.d(TAG, "WiFi P2P Disabled");
             }
+        } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
+            Log.d(TAG, "INTENT:WIFI_P2P_PEERS_CHANGED_ACTION");
+            manager.requestPeers(channel, new WifiP2pManager.PeerListListener() {
+                @Override
+                public void onPeersAvailable(WifiP2pDeviceList peers) {
+                    updatePeerList(peers);
+                }
+            });
+        /*
+        } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
+            Log.d(TAG, "INTENT:WIFI_P2P_CONNECTION_CHANGED_ACTION");
+            WifiP2pInfo conState = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_INFO);
+            NetworkInfo netState = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+            Log.d(TAG, "EXTRA_WIFI_P2P_INFO:" + conState.toString());
+            Log.d(TAG, "EXTRA_NETWORK_INFO:" + netState.toString());
+        */
+        } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
+            Log.d(TAG, "INTENT:WIFI_P2P_THIS_DEVICE_CHANGED_ACTION");
+            WifiP2pDevice device = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
+            Log.d(TAG, "Local Device: " + device.deviceName + "(" + device.deviceAddress + ")");
+        } else if (WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION.equals(action)) {
+            Log.d(TAG, "INTENT:WIFI_P2P_DISCOVERY_CHANGED_ACTION");
+            int state = intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, -1);
+            if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED) {
+                Log.d(TAG, "Device Discovery Has Started");
+            } else if (state == WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED) {
+                Log.d(TAG, "Device Discovery Has Stopped");
+                startDeviceDiscovery();
+            }
+        }
         }
     };
 }
