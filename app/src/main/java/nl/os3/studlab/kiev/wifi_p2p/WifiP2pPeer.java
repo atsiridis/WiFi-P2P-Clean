@@ -20,6 +20,14 @@ public class WifiP2pPeer {
         resetLastSeen();
     }
 
+    public void setCurrentServiceRequest(WifiP2pServiceRequest serviceRequest) {
+        currentServiceRequest = serviceRequest;
+    }
+
+    public WifiP2pServiceRequest getCurrentServiceRequest() {
+        return currentServiceRequest;
+    }
+
     public void resetLastSeen() {
         lastSeen = System.nanoTime();
     }

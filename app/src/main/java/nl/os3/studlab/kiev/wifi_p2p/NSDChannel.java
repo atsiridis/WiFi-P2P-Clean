@@ -193,17 +193,14 @@ public class NSDChannel {
         });
     }
 
-    private void addUpnpServiceRequest(String query) {
+    private void addServiceRequest(String remoteSID) {
+        int sequenceNumber = peerMap.get(remoteSID).getRecvSequence();
+        String pairID = String.format("%016x",Long.parseLong(localSID,16) ^ Long.parseLong(remoteSID,16));
+        pairID = pairID.substring(0,4) + "-" + pairID.substring(4);
+        String query = String.format(Locale.ENGLISH, "-%04d-%s::X", sequenceNumber, pairID);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
         addServiceRequest(serviceRequest);
-    }
-
-    private void addUpnpServiceRequest(int sequenceNumber, String remoteAddress) {
-        // TODO: Lookup Sequence Number from Remote Address
-        // TODO: Strip colons from MAC address
-        String query = String.format(Locale.ENGLISH, "-%04d-%s::X", sequenceNumber, remoteAddress);
-        WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
-        addServiceRequest(serviceRequest);
+        peerMap.get(remoteSID).setCurrentServiceRequest(serviceRequest);
     }
 
     private void removeServiceRequest(WifiP2pServiceRequest serviceRequest) {
