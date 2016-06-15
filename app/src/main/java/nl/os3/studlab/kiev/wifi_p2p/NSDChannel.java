@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 // TODO: Implement message (packet) passing?
 // TODO: Add Local Service Cleanup using Acknowledgements
@@ -45,6 +47,7 @@ public class NSDChannel {
     private String localAddress;
     private String localSID;
     private Map<String,WifiP2pPeer> peerMap = new HashMap<>();
+    private Timer checkLastSeenPeer;
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -53,6 +56,8 @@ public class NSDChannel {
     private final int LEGACY_MAX_SERVICE_LENGTH = 764;
     private final int LEGACY_MAX_BINARY_DATA_SIZE = LEGACY_MAX_SERVICE_LENGTH * 6 / 8; // (due to Base64 Encoding)
     private final int LEGACY_MAX_FRAGMENT_LENGTH = 187;
+    private final long expiretime = 240000000000L; // 4 min
+    private final long checkPeerLostInterval = 10000l; // 10 sec
 
     public NSDChannel() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
@@ -73,6 +78,7 @@ public class NSDChannel {
         startDeviceDiscovery();
         setResponseListener();
         setDeviceName("SERVAL" + localSID);
+        checkLostPeers();
 
         // TODO: When should Device Discovery Start?
     }
@@ -389,6 +395,25 @@ public class NSDChannel {
             }
         }
     }
+    private void checkLostPeers() {
+        Log.d(TAG,"Checking for lost peers");
+        checkLastSeenPeer = new Timer();
+        checkLastSeenPeer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                Log.d(TAG,"Checking for lost peers");
+                for(String kp : peerMap.keySet()){
+                    Log.d(TAG,"Current time" + System.nanoTime());
+                    Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
+                    if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
+                        Log.d(TAG,"Deliting peer :" + peerMap.get(kp).getSID());
+                        peerMap.remove(kp);
+                    }
+                }
+            }
+        },checkPeerLostInterval,checkPeerLostInterval);
+    }
+
 
     private BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override

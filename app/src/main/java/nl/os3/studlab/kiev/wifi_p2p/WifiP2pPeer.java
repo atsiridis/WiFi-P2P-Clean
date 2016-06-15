@@ -28,7 +28,9 @@ public class WifiP2pPeer {
     public void resetLastSeen() {
         lastSeen = System.nanoTime();
     }
-
+    public long getLastSeen(){
+        return lastSeen;
+    }
     public String getSID() {
         return localSID;
     }
