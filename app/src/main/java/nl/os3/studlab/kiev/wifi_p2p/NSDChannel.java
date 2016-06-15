@@ -55,7 +55,7 @@ public class NSDChannel {
     private final int LEGACY_MAX_BINARY_DATA_SIZE = LEGACY_MAX_SERVICE_LENGTH * 6 / 8; // (due to Base64 Encoding)
     private final int LEGACY_MAX_FRAGMENT_LENGTH = 187;
     private final long expiretime = 240000000000L; // 4 min
-    private final long checkPeerLostInterval = 10000l; // 10 sec
+    private final long checkPeerLostInterval = 10000L; // 10 sec
 
     public NSDChannel() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
