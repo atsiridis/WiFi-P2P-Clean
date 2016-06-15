@@ -38,6 +38,7 @@ import java.util.TimerTask;
 // TODO: How will SIDs be used with UUIDs
 // TODO: How to keep device discovery working until we quit
 // TODO: What is the format of addresses received from application?
+// TODO: Determine how often to rotate service requests on legacy devices
 
 public class NSDChannel {
     private final String TAG = "OS3";
@@ -80,8 +81,6 @@ public class NSDChannel {
         setResponseListener();
         setDeviceName("SERVAL" + localSID);
         checkLostPeers();
-
-        // TODO: When should Device Discovery Start?
     }
 
     /* Init */
