@@ -139,6 +139,7 @@ public class NSDChannel {
             @Override
             public void onFailure(int reason) {
                 Log.d(TAG,"Starting Device Discovery Failed (" + reason + ")!");
+                startDeviceDiscovery();
             }
         });
     }
