@@ -23,6 +23,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,7 +44,7 @@ public class NSDChannel {
     private Channel channel;
     private String localAddress;
     private String localSID;
-    private Map<String,WifiP2pPeer> peerMap;
+    private Map<String,WifiP2pPeer> peerMap = new HashMap<>();
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -368,6 +369,8 @@ public class NSDChannel {
             e.printStackTrace();
         }
     }
+
+    /* Intent Handling */
 
     private void updatePeerList(WifiP2pDeviceList devices) {
         Collection<WifiP2pDevice> peers = devices.getDeviceList();
