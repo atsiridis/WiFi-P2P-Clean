@@ -34,7 +34,7 @@ import java.util.TimerTask;
 // TODO: Implement message (packet) passing?
 // TODO: What is the format of addresses received from application?
 // TODO: Implement Broadcast Messaging?
-// TODO: Provide alist of peers and in what format?
+// TODO: Provide a list of peers and in what format?
 
 // TODO: We need to...
 // TODO: Add Local Service Cleanup using Acknowledgements
