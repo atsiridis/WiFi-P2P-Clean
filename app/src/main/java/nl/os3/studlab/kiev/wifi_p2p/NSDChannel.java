@@ -247,7 +247,7 @@ public class NSDChannel {
         });
     }
 
-    public void postBinaryData(byte[] bytes, String remoteAddress) {
+    public void postBinaryData(byte[] bytes, String remoteSID) {
         int maxDataSize = (Build.VERSION.SDK_INT > 20) ? MAX_BINARY_DATA_SIZE : LEGACY_MAX_BINARY_DATA_SIZE;
 
         int totalBytes = bytes.length;
@@ -263,30 +263,32 @@ public class NSDChannel {
             }
             sData = Base64.encodeToString(bytes, start, end - start, Base64.NO_WRAP | Base64.NO_PADDING);
 
-            postStringData(sData, remoteAddress);
+            postStringData(sData, remoteSID);
 
             start += maxDataSize;
             end += maxDataSize;
-            // TODO: Increase sequence number for the remoteAddress
         }
     }
 
-    private void postStringData(String sData, String remoteAddress) {
+    private void postStringData(String sData, String remoteSID) {
         int maxServiceLength = (Build.VERSION.SDK_INT > 20) ? MAX_SERVICE_LENGTH : LEGACY_MAX_SERVICE_LENGTH;
         int fragmentSize = (Build.VERSION.SDK_INT > 20) ? MAX_SERVICE_LENGTH : LEGACY_MAX_FRAGMENT_LENGTH;
         if (sData.length() > maxServiceLength) {
-            Log.wtf(TAG,"More String Data Then Can be handeled in single sequence");
+            Log.e(TAG,"More String Data Then Can be handled in single sequence");
             System.exit(UNSPECIFIED_ERROR);
         }
 
         String uuid;
-        String uuidPrefix = "00000000-0000";
-        int sequenceNumber = 0; // TODO: Get Sequence Number for remote address
+        String uuidPrefix = "00000000";
+        int sequenceNumber = peerMap.get(remoteSID).getNextSendSequence();
         String device = "";
+        String pairID = String.format("%016x",Long.parseLong(localSID,16) ^ Long.parseLong(remoteSID,16));
+        pairID = pairID.substring(0,4) + "-" + pairID.substring(4);
         String service;
         int fragmentNumber = 0;
         WifiP2pUpnpServiceInfo serviceInfo;
         ArrayList<String> services;
+        ArrayList<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
         int stringLength = sData.length();
         int start = 0;
         int end = fragmentSize;
@@ -294,18 +296,20 @@ public class NSDChannel {
 
         while (!lastFragment) {
             if (end >= stringLength) { end = stringLength; lastFragment = true; }
-            // TODO: Strip colons from MAC address
-            uuid = String.format(Locale.ENGLISH, "%s-%04d-%04d-%s", uuidPrefix, fragmentNumber, sequenceNumber, remoteAddress);
+            uuid = String.format(Locale.ENGLISH, "%s-%04d-%04d-%s", uuidPrefix, fragmentNumber, sequenceNumber, pairID);
             service = sData.substring(start,end);
             services = new ArrayList<>();
             services.add("X" + service);
 
             serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
             addLocalService(serviceInfo);
+            serviceInfos.add(serviceInfo);
 
             start += fragmentSize;
             end += fragmentSize;
         }
+
+        peerMap.get(remoteSID).addService(serviceInfos);
     }
 
     private void clearLocalServices() {
@@ -323,10 +327,6 @@ public class NSDChannel {
     }
 
     /* Util */
-
-    private String macToHex(String macAddress) {
-        return macAddress.replace(":","");
-    }
 
     private String generateRandomHexString(int length) {
         Random randomGenerator = new Random();

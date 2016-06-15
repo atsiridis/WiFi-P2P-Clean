@@ -12,7 +12,7 @@ import java.util.Map;
 public class WifiP2pPeer {
     private int sendSequence = 0;
     private int recvSequence = 0;
-    private Map<Integer,WifiP2pServiceInfo> serviceMap = new HashMap<>();
+    private Map<Integer,Collection<WifiP2pServiceInfo>> serviceMap = new HashMap<>();
     private WifiP2pServiceRequest currentServiceRequest;
     private long lastSeen;
 
@@ -48,11 +48,13 @@ public class WifiP2pPeer {
     }
 
     public Collection<WifiP2pServiceInfo> getAllServices() {
-        Collection<Integer> keys = serviceMap.keySet();
+        Collection<Integer> mapKeys = serviceMap.keySet();
         Collection<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
 
-        for (int key : keys) {
-            serviceInfos.add(serviceMap.get(key));
+        for (int mapKey : mapKeys) {
+            for (WifiP2pServiceInfo serviceInfo : serviceMap.get(mapKey)) {
+                serviceInfos.add(serviceInfo);
+            }
         }
         return serviceInfos;
     }
@@ -63,14 +65,16 @@ public class WifiP2pPeer {
 
         for (int key : keys) {
             if (key < sequenceNumber) {
-                removedServices.add(serviceMap.get(key));
+                for (WifiP2pServiceInfo serviceInfo : serviceMap.get(key)) {
+                    removedServices.add(serviceInfo);
+                }
                 serviceMap.remove(key);
             }
         }
         return removedServices;
     }
 
-    public void addService(WifiP2pServiceInfo serviceInfo) {
-        serviceMap.put(sendSequence++, serviceInfo);
+    public void addService(Collection<WifiP2pServiceInfo> serviceInfos) {
+        serviceMap.put(sendSequence++, serviceInfos);
     }
 }
