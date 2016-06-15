@@ -360,7 +360,7 @@ public class NSDChannel {
         setDeviceName(Build.MODEL);
     }
 
-    private void send(byte[] remoteAddress, byte[] buffer) {
+    public void send(byte[] remoteAddress, byte[] buffer) {
         // TODO: What should we do if remoteAddress is not a known peer?
         postBinaryData(buffer, bytesToHexString(remoteAddress));
     }
