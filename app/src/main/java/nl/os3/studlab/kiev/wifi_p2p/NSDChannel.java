@@ -325,6 +325,19 @@ public class NSDChannel {
             }
         });
     }
+    private void removeLocalService(WifiP2pServiceInfo serviceinfo) {
+        manager.removeLocalService(channel, serviceinfo ,new ActionListener() {
+            @Override
+            public void onSuccess() {
+                Log.d(TAG,"Local Service removed");
+            }
+
+            @Override
+            public void onFailure(int reason) {
+                Log.d(TAG,"Failed to remove Local Service!");
+            }
+        });
+    }
 
     /* Util */
 
@@ -402,6 +415,9 @@ public class NSDChannel {
                     Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
                     if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
                         Log.d(TAG,"Deliting peer :" + kp);
+                        for (WifiP2pServiceInfo serviceinfo :  peerMap.get(kp).getAllServices()){
+                            removeLocalService(serviceinfo);
+                        }
                         peerMap.remove(kp);
                     }
                 }
