@@ -404,7 +404,7 @@ public class NSDChannel {
                     Log.d(TAG,"Current time" + System.nanoTime());
                     Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
                     if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
-                        Log.d(TAG,"Deliting peer :" + peerMap.get(kp).getSID());
+                        Log.d(TAG,"Deliting peer :" + kp);
                         peerMap.remove(kp);
                     }
                 }
