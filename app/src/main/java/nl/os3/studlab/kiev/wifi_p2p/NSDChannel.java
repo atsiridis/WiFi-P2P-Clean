@@ -45,7 +45,6 @@ public class NSDChannel {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
     private Channel channel;
-    private String localAddress;
     private String localSID;
     private Map<String,WifiP2pPeer> peerMap = new HashMap<>();
     private Timer checkLastSeenPeer;
@@ -96,14 +95,6 @@ public class NSDChannel {
 
         manager.setUpnpServiceResponseListener(channel,upnpServiceResponseListener);
         Log.d(TAG, "Initialized UPnP Service Listeners");
-    }
-
-    public void stop() {
-        clearLocalServices();
-        clearServiceRequests();
-        WiFiApplication.context.unregisterReceiver(receiver);
-        stopDeviceDiscovery();
-        setDeviceName(Build.MODEL);
     }
 
     /* Receive Data */
@@ -361,7 +352,16 @@ public class NSDChannel {
 
     /* Interface Implementation */
 
-    public void send(byte[] remoteAddress, byte[] buffer) {
+    public void down() {
+        clearLocalServices();
+        clearServiceRequests();
+        WiFiApplication.context.unregisterReceiver(receiver);
+        stopDeviceDiscovery();
+        setDeviceName(Build.MODEL);
+    }
+
+    private void send(byte[] remoteAddress, byte[] buffer) {
+        // TODO: What should we do if remoteAddress is not a known peer?
         postBinaryData(buffer, bytesToHexString(remoteAddress));
     }
 

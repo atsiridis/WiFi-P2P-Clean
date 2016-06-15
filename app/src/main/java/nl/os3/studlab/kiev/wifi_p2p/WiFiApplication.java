@@ -103,7 +103,7 @@ public class WiFiApplication extends Application {
     }
 
     public void exit(int exitCode) {
-        nsd.stop();
+        nsd.down();
         Log.d(TAG,"Exiting");
         System.exit(exitCode);
     }
