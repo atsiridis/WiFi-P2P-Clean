@@ -18,6 +18,7 @@ import android.util.Log;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -46,6 +47,8 @@ public class NSDChannel {
     private String localSID;
     private Map<String,WifiP2pPeer> peerMap = new HashMap<>();
     private Timer checkLastSeenPeer;
+    private ArrayDeque<WifiP2pServiceRequest> legacyRequestQueue = new ArrayDeque<>();
+    private WifiP2pServiceRequest legacyCurrentServiceRequest;
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -194,13 +197,29 @@ public class NSDChannel {
     }
 
     private void addServiceRequest(String remoteSID) {
+        boolean legacy = (Build.VERSION.SDK_INT < 20);
         int sequenceNumber = peerMap.get(remoteSID).getRecvSequence();
-        String pairID = String.format("%016x",Long.parseLong(localSID,16) ^ Long.parseLong(remoteSID,16));
-        pairID = pairID.substring(0,4) + "-" + pairID.substring(4);
+        String pairID = String.format("%016x", Long.parseLong(localSID, 16) ^ Long.parseLong(remoteSID, 16));
+        pairID = pairID.substring(0, 4) + "-" + pairID.substring(4);
         String query = String.format(Locale.ENGLISH, "-%04d-%s::X", sequenceNumber, pairID);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
-        addServiceRequest(serviceRequest);
         peerMap.get(remoteSID).setCurrentServiceRequest(serviceRequest);
+        if (legacy) {
+            legacyRequestQueue.add(serviceRequest);
+        } else {
+            addServiceRequest(serviceRequest);
+        }
+    }
+
+    private void rotateServiceRequestQueue() {
+        if (legacyCurrentServiceRequest != null) {
+            removeServiceRequest(legacyCurrentServiceRequest);
+        }
+        if (!legacyRequestQueue.isEmpty()) {
+            legacyCurrentServiceRequest = legacyRequestQueue.remove();
+            addServiceRequest(legacyCurrentServiceRequest);
+            legacyRequestQueue.add(legacyCurrentServiceRequest);
+        }
     }
 
     private void removeServiceRequest(WifiP2pServiceRequest serviceRequest) {
@@ -383,7 +402,7 @@ public class NSDChannel {
                 sid = peer.deviceName.substring(6);
                 if (!peerMap.containsKey(sid)) {
                     peerMap.put(sid,new WifiP2pPeer(peer));
-                    // TODO: Create service requests for new peer, must be handled differently for legacy devices
+                    addServiceRequest(sid);
                 } else {
                     peerMap.get(sid).resetLastSeen();
                 }
