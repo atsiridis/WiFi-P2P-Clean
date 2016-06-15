@@ -360,6 +360,21 @@ public class NSDChannel {
 
     /* Util */
 
+    private String bytesToHexString(byte[] bytes) {
+        String hexString = "";
+        for (Byte b: bytes) {
+            hexString += String.format(Locale.ENGLISH, "%02x", b);
+        }
+        return hexString;
+    }
+
+    private byte[] generateRandomBytes(int length) {
+        Random randomGenerator = new Random();
+        byte[] bytes = new byte[length];
+        randomGenerator.nextBytes(bytes);
+        return bytes;
+    }
+
     private String generateRandomHexString(int length) {
         Random randomGenerator = new Random();
         String hexString = "";
