@@ -21,9 +21,11 @@ import android.util.Log;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 // TODO: Implement message (packet) passing?
@@ -33,6 +35,7 @@ import java.util.Random;
 // TODO: Implement Broadcast Message
 // TODO: How will SIDs be used with UUIDs
 // TODO: How to keep device discovery working until we quit
+// TODO: What is the format of addresses received from application?
 
 public class NSDChannel {
     private final String TAG = "OS3";
@@ -40,6 +43,7 @@ public class NSDChannel {
     private Channel channel;
     private String localAddress;
     private String localSID;
+    private Map<String,WifiP2pPeer> peerMap;
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -365,6 +369,22 @@ public class NSDChannel {
         }
     }
 
+    private void updatePeerList(WifiP2pDeviceList devices) {
+        Collection<WifiP2pDevice> peers = devices.getDeviceList();
+        String sid;
+
+        for (WifiP2pDevice peer : peers) {
+            if (peer.deviceName.matches("SERVAL[[0-9][a-f]]{16}")) {
+                sid = peer.deviceName.substring(6);
+                if (!peerMap.containsKey(sid)) {
+                    peerMap.put(sid,new WifiP2pPeer(peer));
+                    // TODO: Create service requests for new peer, must be handled differently for legacy devices
+                } else {
+                    peerMap.get(sid).resetLastSeen();
+                }
+            }
+        }
+    }
 
     private BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
@@ -383,9 +403,7 @@ public class NSDChannel {
                 manager.requestPeers(channel, new WifiP2pManager.PeerListListener() {
                     @Override
                     public void onPeersAvailable(WifiP2pDeviceList peers) {
-                        for (WifiP2pDevice peer : peers.getDeviceList()) {
-                            Log.d(TAG, "Peer Found: " + peer.deviceName + "(" + peer.deviceAddress + ")");
-                        }
+                        updatePeerList(peers);
                     }
                 });
             /*

@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.View;
 
 public class WiFiActivity extends AppCompatActivity {
-    private final String TAG = "OS3";
     private WiFiApplication app;
 
     @Override
@@ -15,7 +14,6 @@ public class WiFiActivity extends AppCompatActivity {
         setContentView(R.layout.activity_wifi);
 
         app = (WiFiApplication) getApplication();
-        Log.d(TAG,"WiFiActivity Created");
     }
 
     public void exit(View view)
