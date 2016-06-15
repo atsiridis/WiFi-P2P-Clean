@@ -18,6 +18,7 @@ import android.util.Log;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -358,6 +359,12 @@ public class NSDChannel {
         });
     }
 
+    /* Interface Implementation */
+
+    public void send(byte[] remoteAddress, byte[] buffer) {
+        postBinaryData(buffer, bytesToHexString(remoteAddress));
+    }
+
     /* Util */
 
     private String bytesToHexString(byte[] bytes) {
@@ -366,6 +373,11 @@ public class NSDChannel {
             hexString += String.format(Locale.ENGLISH, "%02x", b);
         }
         return hexString;
+    }
+
+    private byte[] hexStringToBytes(String hexString) {
+        ByteBuffer bytes = ByteBuffer.allocate(8);
+        return bytes.putLong(Long.parseLong(hexString,16)).array();
     }
 
     private byte[] generateRandomBytes(int length) {
