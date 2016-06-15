@@ -18,7 +18,7 @@ import android.util.Log;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -368,23 +368,12 @@ public class NSDChannel {
     /* Util */
 
     private String bytesToHexString(byte[] bytes) {
-        String hexString = "";
-        for (Byte b: bytes) {
-            hexString += String.format(Locale.ENGLISH, "%02x", b);
-        }
-        return hexString;
+        return String.format("%016x", new BigInteger(bytes));
     }
 
     private byte[] hexStringToBytes(String hexString) {
-        ByteBuffer bytes = ByteBuffer.allocate(8);
-        return bytes.putLong(Long.parseLong(hexString,16)).array();
-    }
-
-    private byte[] generateRandomBytes(int length) {
-        Random randomGenerator = new Random();
-        byte[] bytes = new byte[length];
-        randomGenerator.nextBytes(bytes);
-        return bytes;
+        // TODO: Returned byte array length is not fixed!
+        return new BigInteger(hexString,16).toByteArray();
     }
 
     private String generateRandomHexString(int length) {
