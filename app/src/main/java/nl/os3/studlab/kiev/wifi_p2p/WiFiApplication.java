@@ -46,6 +46,12 @@ public class WiFiApplication extends Application {
         nsd.send(new BigInteger(remoteSID,16).toByteArray(), bytes);
     }
 
+    public void sendBroadcast() {
+        byte[] bytes = generateRandomBytes(64);
+        Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
+        nsd.send(null, bytes);
+    }
+
     public void setActivity(WiFiActivity activity) {
         this.activity = activity;
         updatePeerList();

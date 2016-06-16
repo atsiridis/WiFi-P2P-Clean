@@ -13,4 +13,5 @@
     <string name="btn_status">Log Status</string>
     <string name="btn_start_peer_discover">Start Peer Discovery</string>
     <string name="btn_stop_peer_discover">Stop Peer Discovery</string>
+    <string name="btn_broadcast">Broadcast</string>
 </resources>

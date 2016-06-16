@@ -1,5 +1,6 @@
 package nl.os3.studlab.kiev.wifi_p2p;
 
+import android.content.Intent;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -43,6 +44,10 @@ public class WiFiActivity extends AppCompatActivity {
                 linearLayout.addView(button);
             }
         }
+    }
+
+    public void sendBroadcast(View v) {
+        app.sendBroadcast();
     }
 
     public void exit(View view)
