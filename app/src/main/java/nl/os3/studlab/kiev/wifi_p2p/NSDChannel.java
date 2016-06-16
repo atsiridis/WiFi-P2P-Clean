@@ -31,13 +31,8 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
-// TODO: Do we need to...
-// TODO: Implement message (packet) passing?
-// TODO: What is the format of addresses received from application?
-// TODO: Implement Broadcast Messaging?
-// TODO: Provide a list of peers and in what format?
-
 // TODO: We need to...
+// TODO: Implement Broadcast Messaging
 // TODO: Add Local Service Cleanup using Acknowledgements
 // TODO: Determine how often to rotate service requests on legacy devices
 
@@ -424,16 +419,16 @@ public class NSDChannel {
 
     private void updatePeerList(WifiP2pDeviceList devices) {
         Collection<WifiP2pDevice> peers = devices.getDeviceList();
-        String sid;
+        String remoteSID;
 
         for (WifiP2pDevice peer : peers) {
             if (peer.deviceName.matches("SERVAL[[0-9][a-f]]{16}")) {
-                sid = peer.deviceName.substring(6);
-                if (!peerMap.containsKey(sid)) {
-                    peerMap.put(sid,new WifiP2pPeer(peer));
-                    addServiceRequest(sid);
+                remoteSID = peer.deviceName.substring(6);
+                if (!peerMap.containsKey(remoteSID)) {
+                    peerMap.put(remoteSID,new WifiP2pPeer(peer));
+                    addServiceRequest(remoteSID);
                 } else {
-                    peerMap.get(sid).resetLastSeen();
+                    peerMap.get(remoteSID).resetLastSeen();
                 }
             }
         }
