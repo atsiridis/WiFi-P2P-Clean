@@ -32,11 +32,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
-// TODO: We need to...
-// TODO: Implement Broadcast Messaging
-// TODO: Add Local Service Cleanup using Acknowledgements
-// TODO: Determine how often to rotate service requests on legacy devices
-
 public class NSDChannel {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
@@ -224,6 +219,7 @@ public class NSDChannel {
         }
     }
 
+    // TODO: Determine how often to rotate service requests on legacy devices
     private void rotateServiceRequestQueue() {
         if (legacyCurrentServiceRequest != null) {
             removeServiceRequest(legacyCurrentServiceRequest);
@@ -279,7 +275,7 @@ public class NSDChannel {
         });
     }
 
-    public void postBinaryData(byte[] bytes, String remoteSID) {
+    private void postBinaryData(byte[] bytes, String remoteSID) {
         int maxDataSize = (Build.VERSION.SDK_INT > 20) ? MAX_BINARY_DATA_SIZE : LEGACY_MAX_BINARY_DATA_SIZE;
 
         int totalBytes = bytes.length;
@@ -346,6 +342,12 @@ public class NSDChannel {
         peerMap.get(remoteSID).addService(serviceInfos);
     }
 
+    private void sendBroadcast(byte[] bytes) {
+        for (String key : peerMap.keySet()) {
+            postBinaryData(bytes, key);
+        }
+    }
+
     private void clearLocalServices() {
         manager.clearLocalServices(channel, new ActionListener() {
             @Override
@@ -359,6 +361,7 @@ public class NSDChannel {
             }
         });
     }
+
     private void removeCollectionLocalServices (Collection<WifiP2pServiceInfo> services){
         for (WifiP2pServiceInfo serviceinfo :  services){
             removeLocalService(serviceinfo);
@@ -400,7 +403,11 @@ public class NSDChannel {
 
     public void send(byte[] remoteAddress, byte[] buffer) {
         // TODO: What should we do if remoteAddress is not a known peer?
-        postBinaryData(buffer, bytesToHexString(remoteAddress));
+        if (remoteAddress==null || remoteAddress.length==0) {
+            sendBroadcast(buffer);
+        } else {
+            postBinaryData(buffer, bytesToHexString(remoteAddress));
+        }
     }
 
     public Collection<String> getPeers() {
