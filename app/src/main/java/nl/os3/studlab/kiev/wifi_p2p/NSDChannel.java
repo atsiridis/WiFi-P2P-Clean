@@ -76,7 +76,11 @@ public class NSDChannel {
         UpnpServiceResponseListener upnpServiceResponseListener = new UpnpServiceResponseListener() {
             @Override
             public void onUpnpServiceAvailable(List<String> uniqueServiceNames, WifiP2pDevice srcDevice) {
-                receiveData(uniqueServiceNames, srcDevice.deviceName.substring(6));
+                if (srcDevice.deviceName.length() != 22) {
+                    Log.e(TAG,"ERROR: Unexpected Device Name: " + srcDevice.toString());
+                } else {
+                    receiveData(uniqueServiceNames, srcDevice.deviceName.substring(6));
+                }
             }
         };
 
