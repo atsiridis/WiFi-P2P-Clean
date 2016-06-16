@@ -97,10 +97,12 @@ public class NSDChannel {
     private void receiveData(List<String> services, String remoteSID) {
         int sequenceNumber = -1;
         int newSequenceNumber;
+        int ackNumber=0;
         String base64data = "";
         Collections.sort(services);
         for (String service : services) {
             newSequenceNumber = Integer.parseInt(service.substring(24, 28));
+            ackNumber=Integer.parseInt(service.substring(9, 13));
             if (sequenceNumber == -1 || sequenceNumber == newSequenceNumber) {
                 sequenceNumber = newSequenceNumber;
                 base64data += service.substring(44);
@@ -112,6 +114,10 @@ public class NSDChannel {
 
         if (sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
             byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
+            peerMap.get(remoteSID).incrementRecvSequence();
+            if (!peerMap.get(remoteSID).removeServicesBefore(ackNumber).isEmpty()) {
+                removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
+            }
             // TODO: Write to source specific buffer until complete packet or write directly to application
             // TODO: Update service request and peer object
         } else {
@@ -282,9 +288,10 @@ public class NSDChannel {
             Log.e(TAG,"More String Data Then Can be handled in single sequence");
             System.exit(UNSPECIFIED_ERROR);
         }
-
+        //TODO:Change both ack and sequence to hex
         String uuid;
-        String uuidPrefix = "00000000";
+        String ackNum = String.format("%04d", peerMap.get(remoteSID).getRecvSequence());
+        String uuidPrefix = "0000" + ackNum;
         int sequenceNumber = peerMap.get(remoteSID).getNextSendSequence();
         String device = "";
         String pairID = String.format("%016x", new BigInteger(localSID,16).xor(new BigInteger(remoteSID,16)));
@@ -330,7 +337,11 @@ public class NSDChannel {
             }
         });
     }
-
+    private void removeCollectionLocalServices (Collection<WifiP2pServiceInfo> services){
+        for (WifiP2pServiceInfo serviceinfo :  services){
+            removeLocalService(serviceinfo);
+        }
+    }
     private void removeLocalService(WifiP2pServiceInfo serviceinfo) {
         manager.removeLocalService(channel, serviceinfo ,new ActionListener() {
             @Override
@@ -447,9 +458,7 @@ public class NSDChannel {
                     Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
                     if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
                         Log.d(TAG,"Deliting peer :" + kp);
-                        for (WifiP2pServiceInfo serviceinfo :  peerMap.get(kp).getAllServices()){
-                            removeLocalService(serviceinfo);
-                        }
+                        removeCollectionLocalServices(peerMap.get(kp).getAllServices());
                         peerMap.remove(kp);
                     }
                 }
