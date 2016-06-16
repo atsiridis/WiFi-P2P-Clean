@@ -53,6 +53,7 @@ public class NSDChannel {
     private final int LEGACY_MAX_FRAGMENT_LENGTH = 187;
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
+    private final long SERVICE_DISCOVERY_INTERVAL = 30000; // in milliseconds
 
     public NSDChannel() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
@@ -175,14 +176,13 @@ public class NSDChannel {
     }
 
     private void setTimer() {
-        // TODO: Change Run interval to a varable
         serviceDiscoveryTimer = new Timer();
         serviceDiscoveryTimer.schedule(new TimerTask() {
             @Override
             public void run() {
                 startServiceDiscovery();
             }
-        },30000,30000);
+        }, SERVICE_DISCOVERY_INTERVAL, SERVICE_DISCOVERY_INTERVAL);
     }
 
     private void resetTimer() {
@@ -396,6 +396,7 @@ public class NSDChannel {
     }
 
     public void down() {
+        serviceDiscoveryTimer.cancel();
         clearLocalServices();
         clearServiceRequests();
         peerMap.clear();
