@@ -45,6 +45,7 @@ public class NSDChannel {
     private Timer checkLastSeenPeer;
     private ArrayDeque<WifiP2pServiceRequest> legacyRequestQueue = new ArrayDeque<>();
     private WifiP2pServiceRequest legacyCurrentServiceRequest;
+    private IntentFilter intentFilter = new IntentFilter();
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -64,18 +65,12 @@ public class NSDChannel {
         clearLocalServices();
         clearServiceRequests();
 
-        IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION);
-        WiFiApplication.context.registerReceiver(receiver,intentFilter);
-
-        startDeviceDiscovery();
         setResponseListener();
-        setDeviceName("SERVAL" + localSID);
-        checkLostPeers();
     }
 
     /* Init */
@@ -195,6 +190,7 @@ public class NSDChannel {
         pairID = pairID.substring(0, 4) + "-" + pairID.substring(4);
         String query = String.format(Locale.ENGLISH, "-%04d-%s::X", sequenceNumber, pairID);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
+        Log.d(TAG,"Adding Service Request: " + query);
         peerMap.get(remoteSID).setCurrentServiceRequest(serviceRequest);
         if (legacy) {
             legacyRequestQueue.add(serviceRequest);
@@ -315,6 +311,7 @@ public class NSDChannel {
 
             serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
             addLocalService(serviceInfo);
+            Log.d(TAG,"Adding Service Info: " + uuid + "::X" + service);
             serviceInfos.add(serviceInfo);
 
             start += fragmentSize;
@@ -358,11 +355,20 @@ public class NSDChannel {
 
     /* Interface Implementation */
 
+    public void up() {
+        setDeviceName("SERVAL" + localSID);
+        startDeviceDiscovery();
+        checkLostPeers();
+        WiFiApplication.context.registerReceiver(receiver,intentFilter);
+    }
+
     public void down() {
         clearLocalServices();
         clearServiceRequests();
+        peerMap.clear();
         WiFiApplication.context.unregisterReceiver(receiver);
         stopDeviceDiscovery();
+        checkLastSeenPeer.cancel();
         setDeviceName(Build.MODEL);
     }
 
@@ -414,7 +420,7 @@ public class NSDChannel {
 
                 @Override
                 public void onSuccess() {
-                    Log.d(TAG,"setDeviceName succeeded");
+                    //Log.d(TAG,"setDeviceName succeeded");
                 }
 
                 @Override
@@ -441,25 +447,27 @@ public class NSDChannel {
                 remoteSID = peer.deviceName.substring(6);
                 if (!peerMap.containsKey(remoteSID)) {
                     peerMap.put(remoteSID,new WifiP2pPeer(peer));
+                    Log.d(TAG,"New Peer Found: " + remoteSID);
                     addServiceRequest(remoteSID);
                 } else {
                     peerMap.get(remoteSID).resetLastSeen();
                 }
             }
         }
+        WiFiApplication.context.updatePeerList();
     }
 
     private void checkLostPeers() {
         // TODO: Delete service requests for timed out peer
-        Log.d(TAG,"Checking for lost peers");
+        //Log.d(TAG,"Checking for lost peers");
         checkLastSeenPeer = new Timer();
         checkLastSeenPeer.schedule(new TimerTask() {
             @Override
             public void run() {
-                Log.d(TAG,"Checking for lost peers");
+                //Log.d(TAG,"Checking for lost peers");
                 for(String kp : peerMap.keySet()){
-                    Log.d(TAG,"Current time" + System.nanoTime());
-                    Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
+                    //Log.d(TAG,"Current time" + System.nanoTime());
+                    //Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
                     if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
                         Log.d(TAG,"Deliting peer :" + kp);
                         removeCollectionLocalServices(peerMap.get(kp).getAllServices());

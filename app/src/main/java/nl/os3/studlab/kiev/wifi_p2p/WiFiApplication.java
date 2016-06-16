@@ -36,6 +36,7 @@ public class WiFiApplication extends Application {
         Log.d(TAG,"################ Initializing ################");
 
         nsd = new NSDChannel();
+        nsd.up();
 
     }
 
