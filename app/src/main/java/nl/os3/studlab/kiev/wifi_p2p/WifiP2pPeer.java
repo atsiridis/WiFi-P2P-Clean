@@ -12,6 +12,7 @@ import java.util.Map;
 public class WifiP2pPeer {
     private int sendSequence = 0;
     private int recvSequence = 0;
+    private int ackThreshold=0;
     private Map<Integer,Collection<WifiP2pServiceInfo>> serviceMap = new HashMap<>();
     private WifiP2pServiceRequest currentServiceRequest;
     private long lastSeen;
@@ -41,8 +42,11 @@ public class WifiP2pPeer {
 
     public void incrementRecvSequence() {
         recvSequence++;
+        ackThreshold++;
     }
-
+    public int getAckThreshold(){
+        return ackThreshold;
+    }
     public int getNextSendSequence() {
         return sendSequence;
     }
@@ -76,5 +80,6 @@ public class WifiP2pPeer {
 
     public void addService(Collection<WifiP2pServiceInfo> serviceInfos) {
         serviceMap.put(sendSequence++, serviceInfos);
+        ackThreshold=0;
     }
 }
