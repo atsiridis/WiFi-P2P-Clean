@@ -10,6 +10,7 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -24,7 +25,9 @@ public class WiFiApplication extends Application {
     private Random randomGenerator = new Random();
     private final int ERROR_UNSPECIFIED = 500;
     public NSDChannel nsd;
-    public static  WiFiApplication context;
+    public static WiFiApplication context;
+    private WiFiActivity activity;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -34,39 +37,38 @@ public class WiFiApplication extends Application {
 
         nsd = new NSDChannel();
 
-        Log.d(TAG,"Initialization Complete");
     }
 
-    private byte[] genBytes() {
-        byte[] bytes = new byte[258];
-        bytes[0] = 0x77;
-        bytes[257] = 0x77;
-        int byteValue;
-        int index = 1;
-        for (int i = 0; i < 256; i++) {
-            byteValue = 127 - i;
-            //if (byteValue == 0x2c) { byteValue = 0xff; }
-            bytes[index++] = (byte) byteValue;
+    public void sendTest(String remoteSID) {
+        byte[] bytes = generateRandomBytes(64);
+        Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
+        nsd.send(new BigInteger(remoteSID,16).toByteArray(), bytes);
+    }
+
+    public void setActivity(WiFiActivity activity) {
+        this.activity = activity;
+        updatePeerList();
+    }
+
+    public void updatePeerList() {
+        if (activity != null) {
+            activity.display_peers(nsd.getPeers());
         }
-        bytes[1] = 0x2c;
-        bytes[2] = 0x2c;
-        bytes[3] = 0x2c;
-        bytes[100] = 0x2c;
-        bytes[101] = 0x2c;
-        bytes[102] = 0x2c;
-        bytes[254] = 0x2c;
-        bytes[255] = 0x2c;
-        bytes[256] = 0x2c;
+    }
+
+    public void exit(int exitCode) {
+        nsd.down();
+        Log.d(TAG,"Exiting");
+        System.exit(exitCode);
+    }
+
+    /* Util */
+
+    private byte[] generateRandomBytes(int length) {
+        Random randomGenerator = new Random();
+        byte[] bytes = new byte[length];
+         randomGenerator.nextBytes(bytes);
         return bytes;
-    }
-
-    private String generateRandomHexString(int length) {
-        String hexString = "";
-
-        for (int i = 0; i < length; i++) {
-            hexString += Integer.toHexString(randomGenerator.nextInt(16));
-        }
-        return hexString;
     }
 
     private String bytesToHex(byte[] bytes) {
@@ -77,35 +79,14 @@ public class WiFiApplication extends Application {
         return hexString;
     }
 
-    private String bytesToString(byte[] bytes) {
-        Charset c = Charset.forName("ISO-8859-1");
-        return new String(bytes, c);
-    }
-
-    private String stringToHex(String byteString) {
-        return bytesToHex(stringToBytes(byteString));
-    }
-
-    private byte[] stringToBytes(String byteString) {
-        Charset c = Charset.forName("ISO-8859-1");
-        return byteString.getBytes(c);
-    }
-
     private String md5sum(byte[] bytes) {
         try {
             MessageDigest digester = MessageDigest.getInstance("MD5");
-            return bytesToHex(digester.digest(bytes));
+            return String.format("%032x", new BigInteger(digester.digest(bytes)));
         } catch (Exception e) {
             Log.wtf(TAG,"Exception: " + e);
             exit(ERROR_UNSPECIFIED);
             return "";
         }
     }
-
-    public void exit(int exitCode) {
-        nsd.down();
-        Log.d(TAG,"Exiting");
-        System.exit(exitCode);
-    }
-
 }
