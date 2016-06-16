@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 
 public class WiFiApplication extends Application {
@@ -27,6 +29,8 @@ public class WiFiApplication extends Application {
     public NSDChannel nsd;
     public static WiFiApplication context;
     private WiFiActivity activity;
+    private int numBroadCasts = 0;
+    private Timer broadcastTimer;
 
     @Override
     public void onCreate() {
@@ -38,6 +42,22 @@ public class WiFiApplication extends Application {
         nsd = new NSDChannel();
         nsd.up();
 
+        //setTimer();
+
+    }
+
+    private void setTimer() {
+        // TODO: Change Run interval to a varable
+        broadcastTimer = new Timer();
+        broadcastTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (numBroadCasts < 100) {
+                    sendBroadcast();
+                    numBroadCasts++;
+                }
+            }
+        },60000,5000);
     }
 
     public void sendTest(String remoteSID) {
