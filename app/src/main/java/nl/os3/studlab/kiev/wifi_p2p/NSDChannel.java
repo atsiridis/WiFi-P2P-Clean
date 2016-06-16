@@ -190,7 +190,7 @@ public class NSDChannel {
     private void addServiceRequest(String remoteSID) {
         boolean legacy = (Build.VERSION.SDK_INT < 20);
         int sequenceNumber = peerMap.get(remoteSID).getRecvSequence();
-        String pairID = String.format("%016x", Long.parseLong(localSID, 16) ^ Long.parseLong(remoteSID, 16));
+        String pairID = String.format("%016x", new BigInteger(localSID,16).xor(new BigInteger(remoteSID,16)));
         pairID = pairID.substring(0, 4) + "-" + pairID.substring(4);
         String query = String.format(Locale.ENGLISH, "-%04d-%s::X", sequenceNumber, pairID);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
@@ -292,7 +292,7 @@ public class NSDChannel {
         String uuidPrefix = "00000000";
         int sequenceNumber = peerMap.get(remoteSID).getNextSendSequence();
         String device = "";
-        String pairID = String.format("%016x",Long.parseLong(localSID,16) ^ Long.parseLong(remoteSID,16));
+        String pairID = String.format("%016x", new BigInteger(localSID,16).xor(new BigInteger(remoteSID,16)));
         pairID = pairID.substring(0,4) + "-" + pairID.substring(4);
         String service;
         int fragmentNumber = 0;
