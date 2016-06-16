@@ -46,6 +46,7 @@ public class NSDChannel {
     private ArrayDeque<WifiP2pServiceRequest> legacyRequestQueue = new ArrayDeque<>();
     private WifiP2pServiceRequest legacyCurrentServiceRequest;
     private IntentFilter intentFilter = new IntentFilter();
+    private Timer serviceDiscoveryTimer = new Timer();
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -79,7 +80,7 @@ public class NSDChannel {
         UpnpServiceResponseListener upnpServiceResponseListener = new UpnpServiceResponseListener() {
             @Override
             public void onUpnpServiceAvailable(List<String> uniqueServiceNames, WifiP2pDevice srcDevice) {
-                receiveData(uniqueServiceNames, srcDevice.deviceAddress);
+                receiveData(uniqueServiceNames, srcDevice.deviceName.substring(6));
             }
         };
 
@@ -96,7 +97,8 @@ public class NSDChannel {
         String base64data = "";
         Collections.sort(services);
         for (String service : services) {
-            newSequenceNumber = Integer.parseInt(service.substring(24, 28));
+            Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
+            newSequenceNumber = Integer.parseInt(service.substring(19, 23));
             ackNumber=Integer.parseInt(service.substring(9, 13));
             if (sequenceNumber == -1 || sequenceNumber == newSequenceNumber) {
                 sequenceNumber = newSequenceNumber;
@@ -165,6 +167,22 @@ public class NSDChannel {
                 Log.d(TAG,"Starting Service Discovery Failed (" + reason + ")!");
             }
         });
+    }
+
+    private void setTimer() {
+        serviceDiscoveryTimer = new Timer();
+        serviceDiscoveryTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                startServiceDiscovery();
+            }
+        },30000,30000);
+    }
+
+    private void resetTimer() {
+        Log.d(TAG,"Reseting Timer");
+        serviceDiscoveryTimer.cancel();
+        setTimer();
     }
 
     /* Service Requests */
@@ -286,7 +304,7 @@ public class NSDChannel {
         }
         //TODO:Change both ack and sequence to hex
         String uuid;
-        String ackNum = String.format("%04d", peerMap.get(remoteSID).getRecvSequence());
+        String ackNum = String.format(Locale.ENGLISH, "%04d", peerMap.get(remoteSID).getRecvSequence());
         String uuidPrefix = "0000" + ackNum;
         int sequenceNumber = peerMap.get(remoteSID).getNextSendSequence();
         String device = "";
@@ -360,6 +378,7 @@ public class NSDChannel {
         startDeviceDiscovery();
         checkLostPeers();
         WiFiApplication.context.registerReceiver(receiver,intentFilter);
+        setTimer();
     }
 
     public void down() {
