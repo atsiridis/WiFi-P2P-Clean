@@ -110,10 +110,16 @@ public class NSDChannel {
         }
 
         if (sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
-            byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
+            if (!base64data.equals("")){
+                byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
+            }
             peerMap.get(remoteSID).incrementRecvSequence();
             if (!peerMap.get(remoteSID).removeServicesBefore(ackNumber).isEmpty()) {
                 removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
+            }
+            if (peerMap.get(remoteSID).getAckThreshold() > 50){
+                //TODO: Send Ack packet
+                postStringData("",remoteSID);
             }
             // TODO: Write to source specific buffer until complete packet or write directly to application
             // TODO: Update service request and peer object
