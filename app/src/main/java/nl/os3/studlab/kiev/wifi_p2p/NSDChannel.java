@@ -371,6 +371,10 @@ public class NSDChannel {
         postBinaryData(buffer, bytesToHexString(remoteAddress));
     }
 
+    public Collection<String> getPeers() {
+        return peerMap.keySet();
+    }
+
     /* Util */
 
     private String bytesToHexString(byte[] bytes) {
