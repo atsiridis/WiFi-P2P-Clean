@@ -8,12 +8,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class WifiP2pPeer {
     private int sendSequence = 0;
     private int recvSequence = 0;
     private int ackThreshold=0;
-    private Map<Integer,Collection<WifiP2pServiceInfo>> serviceMap = new HashMap<>();
+    private Map<Integer,Collection<WifiP2pServiceInfo>> serviceMap = new ConcurrentHashMap<>();
     private WifiP2pServiceRequest currentServiceRequest;
     private long lastSeen;
 

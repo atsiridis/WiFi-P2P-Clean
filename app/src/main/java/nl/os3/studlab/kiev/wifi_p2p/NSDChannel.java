@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 
 // TODO: We need to...
 // TODO: Implement Broadcast Messaging
@@ -41,7 +42,7 @@ public class NSDChannel {
     private WifiP2pManager manager;
     private Channel channel;
     private String localSID;
-    private Map<String,WifiP2pPeer> peerMap = new HashMap<>();
+    private Map<String,WifiP2pPeer> peerMap = new ConcurrentHashMap<>();
     private Timer checkLastSeenPeer;
     private ArrayDeque<WifiP2pServiceRequest> legacyRequestQueue = new ArrayDeque<>();
     private WifiP2pServiceRequest legacyCurrentServiceRequest;
@@ -114,15 +115,15 @@ public class NSDChannel {
                 byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
             }
             peerMap.get(remoteSID).incrementRecvSequence();
-            if (!peerMap.get(remoteSID).removeServicesBefore(ackNumber).isEmpty()) {
-                removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
-            }
+            removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
+            // TODO: change threshold to a variable
             if (peerMap.get(remoteSID).getAckThreshold() > 50){
                 //TODO: Send Ack packet
                 postStringData("",remoteSID);
             }
-            // TODO: Write to source specific buffer until complete packet or write directly to application
-            // TODO: Update service request and peer object
+            // receivedPacket(hexStringToBytes(remoteSID), bytes);
+            removeServiceRequest(peerMap.get(remoteSID).getCurrentServiceRequest());
+            addServiceRequest(remoteSID);
         } else {
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
             System.exit(UNSPECIFIED_ERROR);
@@ -160,7 +161,6 @@ public class NSDChannel {
         });
     }
 
-    // TODO: Figure out when to run this!
     private void startServiceDiscovery() {
         manager.discoverServices(channel, new ActionListener() {
             @Override
@@ -176,6 +176,7 @@ public class NSDChannel {
     }
 
     private void setTimer() {
+        // TODO: Change Run interval to a varable
         serviceDiscoveryTimer = new Timer();
         serviceDiscoveryTimer.schedule(new TimerTask() {
             @Override
