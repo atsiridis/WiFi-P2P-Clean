@@ -105,8 +105,8 @@ public class NSDChannel {
         Collections.sort(services);
         for (String service : services) {
             Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
-            newSequenceNumber = Integer.parseInt(service.substring(19, 23));
-            ackNumber=Integer.parseInt(service.substring(9, 13));
+            newSequenceNumber = Integer.valueOf(service.substring(19, 23),16);
+            ackNumber=Integer.valueOf(service.substring(9, 13),16);
             if (sequenceNumber == -1 || sequenceNumber == newSequenceNumber) {
                 sequenceNumber = newSequenceNumber;
                 base64data += service.substring(44);
@@ -332,9 +332,8 @@ public class NSDChannel {
             Log.e(TAG,"More String Data Then Can be handled in single sequence");
             System.exit(UNSPECIFIED_ERROR);
         }
-        //TODO:Change both ack and sequence to hex
         String uuid;
-        String ackNum = String.format(Locale.ENGLISH, "%04d", peerMap.get(remoteSID).getRecvSequence());
+        String ackNum = String.format(Locale.ENGLISH, "%04x", peerMap.get(remoteSID).getRecvSequence());
         String uuidPrefix = "0000" + ackNum;
         int sequenceNumber = peerMap.get(remoteSID).getNextSendSequence();
         String device = "";
@@ -352,7 +351,7 @@ public class NSDChannel {
 
         while (!lastFragment) {
             if (end >= stringLength) { end = stringLength; lastFragment = true; }
-            uuid = String.format(Locale.ENGLISH, "%s-%04d-%04d-%s", uuidPrefix, fragmentNumber, sequenceNumber, pairID);
+            uuid = String.format(Locale.ENGLISH, "%s-%04d-%04x-%s", uuidPrefix, fragmentNumber, sequenceNumber, pairID);
             service = sData.substring(start,end);
             services = new ArrayList<>();
             services.add("X" + service);
