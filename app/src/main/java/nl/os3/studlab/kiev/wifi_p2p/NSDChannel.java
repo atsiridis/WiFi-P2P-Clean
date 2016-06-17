@@ -444,11 +444,11 @@ public class NSDChannel {
     /* Util */
 
     private String bytesToHexString(byte[] bytes) {
-        return String.format("%016x", new BigInteger(bytes));
+        return String.format("%016x", new BigInteger(1,bytes));
     }
 
     private byte[] hexStringToBytes(String hexString) {
-        // TODO: Returned byte array length is not fixed!
+        // NOTE: Returned byte array length is not fixed!
         return new BigInteger(hexString,16).toByteArray();
     }
 
