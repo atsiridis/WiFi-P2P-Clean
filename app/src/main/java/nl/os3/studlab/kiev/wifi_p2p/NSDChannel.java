@@ -23,7 +23,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -429,11 +428,15 @@ public class NSDChannel {
     }
 
     public void send(byte[] remoteAddress, byte[] buffer) {
-        // TODO: What should we do if remoteAddress is not a known peer?
-        if (remoteAddress==null || remoteAddress.length==0) {
+        if (remoteAddress == null || remoteAddress.length == 0) {
             sendBroadcast(buffer);
         } else {
-            postBinaryData(buffer, bytesToHexString(remoteAddress));
+            String hexRemoteAddress = bytesToHexString(remoteAddress);
+            if (peerMap.containsKey(hexRemoteAddress)) {
+                postBinaryData(buffer, hexRemoteAddress);
+            } else {
+                Log.w(TAG,"Discarding Data To Unknown Address: " + hexRemoteAddress);
+            }
         }
     }
 
