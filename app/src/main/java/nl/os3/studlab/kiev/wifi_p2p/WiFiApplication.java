@@ -1,26 +1,13 @@
 package nl.os3.studlab.kiev.wifi_p2p;
 
 import android.app.Application;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.IntentFilter;
-import android.net.wifi.p2p.WifiP2pManager;
-import android.net.wifi.p2p.WifiP2pManager.*;
 import android.util.Log;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
-import java.nio.charset.Charset;
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.UUID;
 
 public class WiFiApplication extends Application {
     private final String TAG = "OS3";
@@ -98,7 +85,7 @@ public class WiFiApplication extends Application {
         return bytes;
     }
 
-    private String bytesToHex(byte[] bytes) {
+    private String bytesToHexString(byte[] bytes) {
         String hexString = "";
         for (Byte b: bytes) {
             hexString += String.format("%02x",b.intValue() & 0xFF);
@@ -109,7 +96,7 @@ public class WiFiApplication extends Application {
     private String md5sum(byte[] bytes) {
         try {
             MessageDigest digester = MessageDigest.getInstance("MD5");
-            return String.format("%032x", new BigInteger(digester.digest(bytes)));
+            return bytesToHexString(digester.digest(bytes));
         } catch (Exception e) {
             Log.wtf(TAG,"Exception: " + e);
             exit(ERROR_UNSPECIFIED);
