@@ -118,6 +118,7 @@ public class NSDChannel {
         if (sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
             if (!base64data.equals("")){
                 byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
+                receivedPacket(hexStringToBytes(remoteSID), bytes);
             }
             peerMap.get(remoteSID).incrementRecvSequence();
             removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
@@ -129,13 +130,17 @@ public class NSDChannel {
                 resetLegacyRotateTimer();
                 rotateServiceRequestQueue();
             }
-            // receivedPacket(hexStringToBytes(remoteSID), bytes);
+
             removeServiceRequest(peerMap.get(remoteSID).getCurrentServiceRequest());
             addServiceRequest(remoteSID);
         } else {
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
             System.exit(UNSPECIFIED_ERROR);
         }
+    }
+
+    private void receivedPacket(byte[] remoteAddress, byte[] data) {
+        // Method Will be provided by AbstractExternalInterface
     }
 
     /* Control */
