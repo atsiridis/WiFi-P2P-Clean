@@ -38,7 +38,6 @@ public class WiFiApplication extends Application {
     }
 
     private void setTimer() {
-        // TODO: Change Run interval to a varable
         broadcastTimer = new Timer();
         broadcastTimer.schedule(new TimerTask() {
             @Override
@@ -94,7 +93,6 @@ public class WiFiApplication extends Application {
     /* Util */
 
     private byte[] generateRandomBytes(int length) {
-        Random randomGenerator = new Random();
         byte[] bytes = new byte[length];
          randomGenerator.nextBytes(bytes);
         return bytes;

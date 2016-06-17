@@ -1,10 +1,7 @@
 package nl.os3.studlab.kiev.wifi_p2p;
 
-import android.content.Intent;
-import android.net.wifi.p2p.WifiP2pDevice;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
