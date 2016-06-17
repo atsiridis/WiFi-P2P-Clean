@@ -43,6 +43,7 @@ public class NSDChannel {
     private WifiP2pServiceRequest legacyCurrentServiceRequest;
     private IntentFilter intentFilter = new IntentFilter();
     private Timer serviceDiscoveryTimer = new Timer();
+    private Timer LegacyRotateTimer = new Timer();
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -53,8 +54,11 @@ public class NSDChannel {
     private final int LEGACY_MAX_FRAGMENT_LENGTH = 187;
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
+    // TODO: Find best value for thise intervals
     private final long SERVICE_DISCOVERY_INTERVAL = 30000; // in milliseconds
-
+    private final long ROTATE_LEGACY_INTERVAL = 29000; // in milliseconds
+    private final int ackThresh = 50; //packet base
+    private final boolean legacy;
     public NSDChannel() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(WiFiApplication.context, WiFiApplication.context.getMainLooper(), null);
@@ -62,6 +66,7 @@ public class NSDChannel {
         stopDeviceDiscovery();
         clearLocalServices();
         clearServiceRequests();
+        legacy = (Build.VERSION.SDK_INT < 20);
 
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
@@ -69,6 +74,7 @@ public class NSDChannel {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION);
         setResponseListener();
+        setLegacyRotateTimer();
     }
 
     /* Init */
@@ -116,10 +122,13 @@ public class NSDChannel {
             }
             peerMap.get(remoteSID).incrementRecvSequence();
             removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
-            // TODO: change threshold to a variable
-            if (peerMap.get(remoteSID).getAckThreshold() > 50){
+            if (peerMap.get(remoteSID).getAckThreshold() > ackThresh){
                 //TODO: Send Ack packet
                 postStringData("",remoteSID);
+            }
+            if (legacy){
+                resetLegacyRotateTimer();
+                rotateServiceRequestQueue();
             }
             // receivedPacket(hexStringToBytes(remoteSID), bytes);
             removeServiceRequest(peerMap.get(remoteSID).getCurrentServiceRequest());
@@ -208,7 +217,6 @@ public class NSDChannel {
     }
 
     private void addServiceRequest(String remoteSID) {
-        boolean legacy = (Build.VERSION.SDK_INT < 20);
         int sequenceNumber = peerMap.get(remoteSID).getRecvSequence();
         String pairID = String.format("%016x", new BigInteger(localSID,16).xor(new BigInteger(remoteSID,16)));
         pairID = pairID.substring(0, 4) + "-" + pairID.substring(4);
@@ -223,7 +231,6 @@ public class NSDChannel {
         }
     }
 
-    // TODO: Determine how often to rotate service requests on legacy devices
     private void rotateServiceRequestQueue() {
         if (legacyCurrentServiceRequest != null) {
             removeServiceRequest(legacyCurrentServiceRequest);
@@ -234,6 +241,22 @@ public class NSDChannel {
             legacyRequestQueue.add(legacyCurrentServiceRequest);
         }
     }
+    private void setLegacyRotateTimer() {
+        LegacyRotateTimer = new Timer();
+        LegacyRotateTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                rotateServiceRequestQueue();
+            }
+        }, ROTATE_LEGACY_INTERVAL, ROTATE_LEGACY_INTERVAL);
+    }
+
+    private void resetLegacyRotateTimer() {
+        Log.d(TAG,"Reseting Legacy Rotate Timer");
+        LegacyRotateTimer.cancel();
+        setTimer();
+    }
+
 
     private void removeServiceRequest(WifiP2pServiceRequest serviceRequest) {
         manager.removeServiceRequest(channel, serviceRequest, new ActionListener() {
@@ -496,7 +519,6 @@ public class NSDChannel {
     }
 
     private void checkLostPeers() {
-        // TODO: Delete service requests for timed out peer
         //Log.d(TAG,"Checking for lost peers");
         checkLastSeenPeer = new Timer();
         checkLastSeenPeer.schedule(new TimerTask() {
@@ -507,8 +529,16 @@ public class NSDChannel {
                     //Log.d(TAG,"Current time" + System.nanoTime());
                     //Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
                     if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
-                        Log.d(TAG,"Deliting peer :" + kp);
+                        Log.d(TAG,"Deleting peer :" + kp);
                         removeCollectionLocalServices(peerMap.get(kp).getAllServices());
+                        if (legacy){
+                            legacyRequestQueue.remove(peerMap.get(kp).getCurrentServiceRequest());
+                            if (legacyCurrentServiceRequest == peerMap.get(kp).getCurrentServiceRequest()) {
+                                rotateServiceRequestQueue();
+                            }
+                        }else{
+                            removeServiceRequest(peerMap.get(kp).getCurrentServiceRequest());
+                        }
                         peerMap.remove(kp);
                     }
                 }
