@@ -23,6 +23,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -73,7 +74,11 @@ public class NSDChannel {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION);
         setResponseListener();
-        setLegacyRotateTimer();
+        Log.e(TAG,"Version: " + Build.VERSION.SDK_INT);
+        if (legacy){
+            setLegacyRotateTimer();
+        }
+
     }
 
     /* Init */
@@ -126,13 +131,14 @@ public class NSDChannel {
                 //TODO: Send Ack packet
                 postStringData("",remoteSID);
             }
+
+            removeServiceRequest(remoteSID);
+            addServiceRequest(remoteSID);
             if (legacy){
                 resetLegacyRotateTimer();
                 rotateServiceRequestQueue();
             }
-
-            removeServiceRequest(peerMap.get(remoteSID).getCurrentServiceRequest());
-            addServiceRequest(remoteSID);
+            // receivedPacket(hexStringToBytes(remoteSID), bytes)
         } else {
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
             System.exit(UNSPECIFIED_ERROR);
@@ -258,10 +264,18 @@ public class NSDChannel {
     private void resetLegacyRotateTimer() {
         Log.d(TAG,"Reseting Legacy Rotate Timer");
         LegacyRotateTimer.cancel();
-        setTimer();
+        setLegacyRotateTimer();
     }
 
+    private void removeServiceRequest(String remoteSID){
+        WifiP2pServiceRequest request = peerMap.get(remoteSID).getCurrentServiceRequest();
+        if(legacy){
+            legacyRequestQueue.remove(request);
 
+        }else{
+            removeServiceRequest(request);
+        }
+    }
     private void removeServiceRequest(WifiP2pServiceRequest serviceRequest) {
         manager.removeServiceRequest(channel, serviceRequest, new ActionListener() {
             @Override
