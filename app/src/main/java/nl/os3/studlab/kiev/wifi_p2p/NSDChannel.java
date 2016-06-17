@@ -138,7 +138,6 @@ public class NSDChannel {
                 resetLegacyRotateTimer();
                 rotateServiceRequestQueue();
             }
-            // receivedPacket(hexStringToBytes(remoteSID), bytes)
         } else {
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
             System.exit(UNSPECIFIED_ERROR);
@@ -433,6 +432,7 @@ public class NSDChannel {
         checkLostPeers();
         WiFiApplication.context.registerReceiver(receiver,intentFilter);
         setTimer();
+        WiFiApplication.context.setSID(localSID); // For Debugging
     }
 
     public void down() {
@@ -457,10 +457,6 @@ public class NSDChannel {
                 Log.w(TAG,"Discarding Data To Unknown Address: " + hexRemoteAddress);
             }
         }
-    }
-
-    public Collection<String> getPeers() {
-        return peerMap.keySet();
     }
 
     /* Util */
@@ -536,7 +532,7 @@ public class NSDChannel {
                 }
             }
         }
-        WiFiApplication.context.updatePeerList();
+        WiFiApplication.context.setPeers(peerMap.keySet()); // For Debugging
     }
 
     private void checkLostPeers() {

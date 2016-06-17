@@ -5,6 +5,8 @@ import android.util.Log;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -18,6 +20,8 @@ public class WiFiApplication extends Application {
     private WiFiActivity activity;
     private int numBroadCasts = 0;
     private Timer broadcastTimer;
+    private String localSID = "";
+    private Collection peers = new ArrayList();
 
     @Override
     public void onCreate() {
@@ -61,12 +65,23 @@ public class WiFiApplication extends Application {
 
     public void setActivity(WiFiActivity activity) {
         this.activity = activity;
-        updatePeerList();
+        updateActivity();
     }
 
-    public void updatePeerList() {
+    public void setPeers(Collection<String> peers) {
+        this.peers = peers;
+        updateActivity();
+    }
+
+    public void setSID(String sid) {
+        localSID = sid;
+        updateActivity();
+    }
+
+    private void updateActivity() {
         if (activity != null) {
-            activity.display_peers(nsd.getPeers());
+            activity.displayPeers(peers);
+            activity.displaySID(localSID);
         }
     }
 
