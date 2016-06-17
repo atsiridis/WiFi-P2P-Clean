@@ -23,7 +23,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -55,8 +54,8 @@ public class NSDChannel {
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
     // TODO: Find best value for thise intervals
-    private final long SERVICE_DISCOVERY_INTERVAL = 30000; // in milliseconds
-    private final long ROTATE_LEGACY_INTERVAL = 29000; // in milliseconds
+    private final long SERVICE_DISCOVERY_INTERVAL = 15000; // in milliseconds
+    private final long ROTATE_LEGACY_INTERVAL = 15000; // in milliseconds
     private final int ackThresh = 50; //packet base
     private final boolean legacy;
 
@@ -107,17 +106,27 @@ public class NSDChannel {
         int newSequenceNumber;
         int ackNumber=0;
         String base64data = "";
+        String serviceType = "";
         Collections.sort(services);
+
+        resetServiceDiscoveryTimer();
         for (String service : services) {
-            Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
-            newSequenceNumber = Integer.valueOf(service.substring(19, 23),16);
-            ackNumber=Integer.valueOf(service.substring(9, 13),16);
-            if (sequenceNumber == -1 || sequenceNumber == newSequenceNumber) {
-                sequenceNumber = newSequenceNumber;
-                base64data += service.substring(44);
+            serviceType = service.substring(43,44);
+            if (serviceType.equals("X")) {
+                Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
+                newSequenceNumber = Integer.valueOf(service.substring(19, 23), 16);
+                ackNumber = Integer.valueOf(service.substring(9, 13), 16);
+                if (sequenceNumber == -1 || sequenceNumber == newSequenceNumber) {
+                    sequenceNumber = newSequenceNumber;
+                    base64data += service.substring(44);
+                } else {
+                    Log.e(TAG, "Unexpected Sequence Number Change: " + services.toString());
+                    System.exit(UNSPECIFIED_ERROR);
+                }
+            } else if (serviceType.equals("S")) {
+                Log.d(TAG,"Keep Alive Received From: " + remoteSID);
             } else {
-                Log.e(TAG,"Unexpected Sequence Number Change: " + services.toString());
-                System.exit(UNSPECIFIED_ERROR);
+                Log.d(TAG,"Ignoring Unknown Service Type: " + serviceType);
             }
         }
 
@@ -139,9 +148,8 @@ public class NSDChannel {
                 resetLegacyRotateTimer();
                 rotateServiceRequestQueue();
             }
-        } else {
+        } else if (sequenceNumber != -1 ){
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
-            System.exit(UNSPECIFIED_ERROR);
         }
     }
 
@@ -194,7 +202,7 @@ public class NSDChannel {
         });
     }
 
-    private void setTimer() {
+    private void setServiceDiscoveryTimer() {
         serviceDiscoveryTimer = new Timer();
         serviceDiscoveryTimer.schedule(new TimerTask() {
             @Override
@@ -204,10 +212,9 @@ public class NSDChannel {
         }, SERVICE_DISCOVERY_INTERVAL, SERVICE_DISCOVERY_INTERVAL);
     }
 
-    private void resetTimer() {
-        Log.d(TAG,"Reseting Timer");
+    private void resetServiceDiscoveryTimer() {
         serviceDiscoveryTimer.cancel();
-        setTimer();
+        setServiceDiscoveryTimer();
     }
 
     /* Service Requests */
@@ -259,7 +266,7 @@ public class NSDChannel {
             public void run() {
                 rotateServiceRequestQueue();
             }
-        }, ROTATE_LEGACY_INTERVAL, ROTATE_LEGACY_INTERVAL);
+        }, ROTATE_LEGACY_INTERVAL-2, ROTATE_LEGACY_INTERVAL);
     }
 
     private void resetLegacyRotateTimer() {
@@ -432,10 +439,11 @@ public class NSDChannel {
 
     public void up() {
         setDeviceName("SERVAL" + localSID);
+        createDefaultServices();
         startDeviceDiscovery();
         checkLostPeers();
         WiFiApplication.context.registerReceiver(receiver,intentFilter);
-        setTimer();
+        setServiceDiscoveryTimer();
         WiFiApplication.context.setSID(localSID); // For Debugging
     }
 
@@ -481,6 +489,19 @@ public class NSDChannel {
             hexString += Integer.toHexString(randomGenerator.nextInt(16));
         }
         return hexString;
+    }
+
+    private void createDefaultServices() {
+        String uuid = "00000000-0000-0000-0000-000000000000";
+        String device = "";
+        String service = "S";
+        ArrayList<String> services = new ArrayList<>();
+        services.add(service);
+        String query = uuid + "::" + service;
+        WifiP2pUpnpServiceInfo serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
+        WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
+        addLocalService(serviceInfo);
+        addServiceRequest(serviceRequest);
     }
 
     /* Reflection */
