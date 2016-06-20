@@ -40,11 +40,8 @@ public class NSDChannel {
     private String localSID;
     private Map<String,WifiP2pPeer> peerMap = new ConcurrentHashMap<>();
     private Timer checkLastSeenPeer;
-    private ArrayDeque<WifiP2pServiceRequest> legacyRequestQueue = new ArrayDeque<>();
-    private WifiP2pServiceRequest legacyCurrentServiceRequest;
     private IntentFilter intentFilter = new IntentFilter();
     private Timer serviceDiscoveryTimer = new Timer();
-    private Timer LegacyRotateTimer = new Timer();
 
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH = 948;
@@ -57,8 +54,6 @@ public class NSDChannel {
     private final long checkPeerLostInterval = 10000L; // 10 sec
     // TODO: Find best value for thise intervals
     private final long SERVICE_DISCOVERY_INTERVAL = 15000; // in milliseconds
-    private final long ROTATE_LEGACY_INTERVAL = 15000; // in milliseconds
-    private final int ackThresh = 50; //packet base
     private final boolean legacy;
 
     public NSDChannel() {
@@ -77,10 +72,6 @@ public class NSDChannel {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION);
         setResponseListener();
         Log.e(TAG,"Version: " + Build.VERSION.SDK_INT);
-        if (legacy){
-            setLegacyRotateTimer();
-        }
-
     }
 
     /* Init */
@@ -234,7 +225,7 @@ public class NSDChannel {
             }
         });
     }
-
+/*
     private void addServiceRequest(String remoteSID) {
         int sequenceNumber = peerMap.get(remoteSID).getRecvSequence();
         String pairID = String.format("%016x", new BigInteger(localSID,16).xor(new BigInteger(remoteSID,16)));
@@ -300,7 +291,7 @@ public class NSDChannel {
             }
         });
     }
-
+*/
     private void clearServiceRequests() {
         manager.clearServiceRequests(channel, new ActionListener() {
             @Override
@@ -553,7 +544,6 @@ public class NSDChannel {
                 if (!peerMap.containsKey(remoteSID)) {
                     peerMap.put(remoteSID,new WifiP2pPeer(peer));
                     Log.d(TAG,"New Peer Found: " + remoteSID);
-                    addServiceRequest(remoteSID);
                 } else {
                     peerMap.get(remoteSID).resetLastSeen();
                 }

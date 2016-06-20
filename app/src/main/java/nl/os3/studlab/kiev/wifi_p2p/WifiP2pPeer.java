@@ -15,19 +15,10 @@ public class WifiP2pPeer {
     private int recvSequence = 0;
     private int ackThreshold=0;
     private Map<Integer,Collection<WifiP2pServiceInfo>> serviceMap = new ConcurrentHashMap<>();
-    private WifiP2pServiceRequest currentServiceRequest;
     private long lastSeen;
 
     WifiP2pPeer(WifiP2pDevice peer) {
         resetLastSeen();
-    }
-
-    public void setCurrentServiceRequest(WifiP2pServiceRequest serviceRequest) {
-        currentServiceRequest = serviceRequest;
-    }
-
-    public WifiP2pServiceRequest getCurrentServiceRequest() {
-        return currentServiceRequest;
     }
 
     public void resetLastSeen() {
