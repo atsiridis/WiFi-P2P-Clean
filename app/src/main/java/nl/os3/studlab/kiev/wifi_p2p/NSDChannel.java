@@ -131,7 +131,7 @@ public class NSDChannel {
             peerMap.get(remoteSID).incrementRecvSequence();
             //IT can stay as it is need to decide if we will change it or not
             removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
-            //TODO:Add ack
+            //TODO:Add new packet, update current , Add empty ack postStringData("",remoteSID)
         } else if (sequenceNumber != -1 ){
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
         }
