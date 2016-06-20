@@ -19,7 +19,6 @@ import android.util.Log;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -53,7 +52,7 @@ public class NSDChannel {
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
     // TODO: Find best value for thise intervals
-    private final long SERVICE_DISCOVERY_INTERVAL = 15000; // in milliseconds
+    private final long SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
     private final boolean legacy;
 
     public NSDChannel() {
@@ -101,12 +100,17 @@ public class NSDChannel {
         String base64data = "";
         String serviceType = "";
         Collections.sort(services);
+        WifiP2pPeer peer = peerMap.get(remoteSID);
+        boolean updatePost = false;
 
         resetServiceDiscoveryTimer();
+        // TODO: Check for valid packet structure
+        // TODO: Check for changes to sequence or ack between packets
         for (String service : services) {
             serviceType = service.substring(43,44);
+            Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
             if (serviceType.equals("X")) {
-                Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
+                //Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
                 newSequenceNumber = Integer.valueOf(service.substring(19, 23), 16);
                 ackNumber = Integer.valueOf(service.substring(9, 13), 16);
                 if (sequenceNumber == -1 || sequenceNumber == newSequenceNumber) {
@@ -116,26 +120,44 @@ public class NSDChannel {
                     Log.e(TAG, "Unexpected Sequence Number Change: " + services.toString());
                     System.exit(UNSPECIFIED_ERROR);
                 }
+            /*
             } else if (serviceType.equals("S")) {
                 Log.d(TAG,"Keep Alive Received From: " + remoteSID);
+            */
             } else {
                 Log.d(TAG,"Ignoring Unknown Service Type: " + serviceType);
             }
         }
 
-        if (sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
-            if (!base64data.equals("")){
-                byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
-                receivedPacket(hexStringToBytes(remoteSID), bytes);
-            }
+        // TODO: Given well formed packet take action
+
+
+
+        if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
+            Log.d(TAG,"New Sequence Received (" + sequenceNumber + ")");
+            byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
+            receivedPacket(hexStringToBytes(remoteSID), bytes);
             peerMap.get(remoteSID).incrementRecvSequence();
+            updatePost = true;
+        }
+
+
             //IT can stay as it is need to decide if we will change it or not
             //removeServiceSet(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
 
             //TODO:Add new packet, update current , Add empty ack postStringData("",remoteSID)
-        } else if (sequenceNumber != -1 ){
-            Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
+
+        if (ackNumber == peer.getCurrentSequenceNumber() + 1) {
+            Log.d(TAG,"New Ack Received (" + ackNumber + ")");
+            peer.removePacket();
+            updatePost = true;
         }
+
+        if (updatePost) {
+            postPacket(remoteSID);
+        }
+
+
     }
 
     private void receivedPacket(byte[] remoteAddress, byte[] data) {
@@ -225,58 +247,7 @@ public class NSDChannel {
         Log.d(TAG,"Adding Service Request: " + query);
         addServiceRequest(serviceRequest);
     }
-/*
-    private void rotateServiceRequestQueue() {
-        if (legacyCurrentServiceRequest != null) {
-            removeServiceRequest(legacyCurrentServiceRequest);
-        }
-        if (!legacyRequestQueue.isEmpty()) {
-            legacyCurrentServiceRequest = legacyRequestQueue.remove();
-            addServiceRequest(legacyCurrentServiceRequest);
-            legacyRequestQueue.add(legacyCurrentServiceRequest);
-        }
-    }
 
-    private void setLegacyRotateTimer() {
-        LegacyRotateTimer = new Timer();
-        LegacyRotateTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                rotateServiceRequestQueue();
-            }
-        }, ROTATE_LEGACY_INTERVAL-2, ROTATE_LEGACY_INTERVAL);
-    }
-
-    private void resetLegacyRotateTimer() {
-        Log.d(TAG,"Reseting Legacy Rotate Timer");
-        LegacyRotateTimer.cancel();
-        setLegacyRotateTimer();
-    }
-
-    private void removeServiceRequest(String remoteSID){
-        WifiP2pServiceRequest request = peerMap.get(remoteSID).getCurrentServiceRequest();
-        if(legacy){
-            legacyRequestQueue.remove(request);
-
-        }else{
-            removeServiceRequest(request);
-        }
-    }
-
-    private void removeServiceRequest(WifiP2pServiceRequest serviceRequest) {
-        manager.removeServiceRequest(channel, serviceRequest, new ActionListener() {
-            @Override
-            public void onSuccess() {
-                Log.d(TAG, "Service Request Removed");
-            }
-
-            @Override
-            public void onFailure(int reason) {
-                Log.d(TAG, "Failed to Remove Service Request");
-            }
-        });
-    }
-*/
     private void clearServiceRequests() {
         manager.clearServiceRequests(channel, new ActionListener() {
             @Override
@@ -309,11 +280,9 @@ public class NSDChannel {
 
     private void queueData(byte[] bytes, String remoteSID) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
+        boolean updatePost = !peer.isNextPacket();
         peer.addPacket(bytes);
-        if (peer.getNextSendSequence() == 0) {
-            postPacket(remoteSID);
-        }
-
+        if (updatePost) { postPacket(remoteSID); }
     }
 
     private void postPacket(String remoteSID) {
@@ -350,9 +319,9 @@ public class NSDChannel {
         String uuid;
         String ackNum = String.format(Locale.ENGLISH, "%04x", peer.getRecvSequence());
         String uuidPrefix = "0000" + ackNum;
-        int sequenceNumber = peer.getNextSendSequence();
+        int sequenceNumber = peer.getCurrentSequenceNumber();
         String device = "";
-        String uuidSuffix = localSID.substring(0,4) + "-" + localSID.substring(4);
+        String uuidSuffix = remoteSID.substring(0,4) + "-" + remoteSID.substring(4);
         String service;
         int fragmentNumber = 0;
         WifiP2pUpnpServiceInfo serviceInfo;
@@ -428,7 +397,7 @@ public class NSDChannel {
 
     public void up() {
         setDeviceName("SERVAL" + localSID);
-        createDefaultServices();
+        //createDefaultServices();
         startDeviceDiscovery();
         checkLostPeers();
         WiFiApplication.context.registerReceiver(receiver,intentFilter);
@@ -539,7 +508,7 @@ public class NSDChannel {
                 remoteSID = peer.deviceName.substring(6);
                 if (!peerMap.containsKey(remoteSID)) {
                     peerMap.put(remoteSID,new WifiP2pPeer(peer));
-                    Log.d(TAG,"New Peer Found: " + remoteSID);
+                    Log.d(TAG,"New Peer Found: " + remoteSID +" (" + peer.deviceAddress + ")");
                 } else {
                     peerMap.get(remoteSID).resetLastSeen();
                 }
