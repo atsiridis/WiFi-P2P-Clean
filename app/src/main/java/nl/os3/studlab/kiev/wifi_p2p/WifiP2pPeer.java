@@ -4,6 +4,7 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
 import android.net.wifi.p2p.nsd.WifiP2pServiceRequest;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -14,8 +15,9 @@ public class WifiP2pPeer {
     private int sendSequence = 0;
     private int recvSequence = 0;
     private int ackThreshold=0;
-    private Map<Integer,Collection<WifiP2pServiceInfo>> serviceMap = new ConcurrentHashMap<>();
     private long lastSeen;
+    private ArrayDeque<byte[]> packetQueue = new ArrayDeque<>();
+    private Collection<WifiP2pServiceInfo> serviceSet = new ArrayList<>();
 
     WifiP2pPeer(WifiP2pDevice peer) {
         resetLastSeen();
@@ -42,7 +44,7 @@ public class WifiP2pPeer {
     public int getNextSendSequence() {
         return sendSequence;
     }
-
+/*
     public Collection<WifiP2pServiceInfo> getAllServices() {
         Collection<Integer> mapKeys = serviceMap.keySet();
         Collection<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
@@ -69,9 +71,25 @@ public class WifiP2pPeer {
         }
         return removedServices;
     }
-
-    public void addService(Collection<WifiP2pServiceInfo> serviceInfos) {
-        serviceMap.put(sendSequence++, serviceInfos);
-        ackThreshold=0;
+*/
+    public void addPacket(byte[] packet) {
+        packetQueue.add(packet);
     }
+
+    public byte[] getPacket() {
+        return packetQueue.peek();
+    }
+
+    public byte[] removePacket() {
+        return packetQueue.remove();
+    }
+
+    public void setServiceSet(Collection serviceSet) {
+        this.serviceSet = serviceSet;
+    }
+
+    public Collection<WifiP2pServiceInfo> getServiceSet() {
+        return serviceSet;
+    }
+
 }
