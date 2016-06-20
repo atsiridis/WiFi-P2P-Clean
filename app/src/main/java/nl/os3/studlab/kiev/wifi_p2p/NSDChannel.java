@@ -71,7 +71,7 @@ public class NSDChannel {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION);
         setResponseListener();
-        Log.e(TAG,"Version: " + Build.VERSION.SDK_INT);
+        addServiceRequest();
     }
 
     /* Init */
@@ -129,18 +129,9 @@ public class NSDChannel {
                 receivedPacket(hexStringToBytes(remoteSID), bytes);
             }
             peerMap.get(remoteSID).incrementRecvSequence();
+            //IT can stay as it is need to decide if we will change it or not
             removeCollectionLocalServices(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
-            if (peerMap.get(remoteSID).getAckThreshold() > ackThresh){
-                //TODO: Send Ack packet
-                postStringData("",remoteSID);
-            }
-
-            removeServiceRequest(remoteSID);
-            addServiceRequest(remoteSID);
-            if (legacy){
-                resetLegacyRotateTimer();
-                rotateServiceRequestQueue();
-            }
+            //TODO:Add ack
         } else if (sequenceNumber != -1 ){
             Log.e(TAG,"Unexpected Sequence Number: " + sequenceNumber);
         }
@@ -225,22 +216,15 @@ public class NSDChannel {
             }
         });
     }
-/*
-    private void addServiceRequest(String remoteSID) {
-        int sequenceNumber = peerMap.get(remoteSID).getRecvSequence();
-        String pairID = String.format("%016x", new BigInteger(localSID,16).xor(new BigInteger(remoteSID,16)));
-        pairID = pairID.substring(0, 4) + "-" + pairID.substring(4);
-        String query = String.format(Locale.ENGLISH, "-%04d-%s::X", sequenceNumber, pairID);
+
+    private void addServiceRequest() {
+        String localID  = localSID.substring(0, 4) + "-" + localSID.substring(4);
+        String query = String.format(Locale.ENGLISH, "-%s::X",  localID);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
         Log.d(TAG,"Adding Service Request: " + query);
-        peerMap.get(remoteSID).setCurrentServiceRequest(serviceRequest);
-        if (legacy) {
-            legacyRequestQueue.add(serviceRequest);
-        } else {
-            addServiceRequest(serviceRequest);
-        }
+        addServiceRequest(serviceRequest);
     }
-
+/*
     private void rotateServiceRequestQueue() {
         if (legacyCurrentServiceRequest != null) {
             removeServiceRequest(legacyCurrentServiceRequest);
@@ -564,15 +548,8 @@ public class NSDChannel {
                     //Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
                     if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
                         Log.d(TAG,"Deleting peer :" + kp);
+                        //This can stay as it is it will not introduce errors but we have to decide
                         removeCollectionLocalServices(peerMap.get(kp).getAllServices());
-                        if (legacy){
-                            legacyRequestQueue.remove(peerMap.get(kp).getCurrentServiceRequest());
-                            if (legacyCurrentServiceRequest == peerMap.get(kp).getCurrentServiceRequest()) {
-                                rotateServiceRequestQueue();
-                            }
-                        }else{
-                            removeServiceRequest(peerMap.get(kp).getCurrentServiceRequest());
-                        }
                         peerMap.remove(kp);
                     }
                 }
