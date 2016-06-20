@@ -1,6 +1,5 @@
 package nl.os3.studlab.kiev.wifi_p2p;
 
-import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
 
 import java.util.ArrayDeque;
@@ -8,13 +7,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 public class WifiP2pPeer {
-    private int sendSequence = 0;
-    private int recvSequence = 0;
+    private int seqNumber = 0;
+    private int ackNumber = 0;
     private long lastSeen;
     private ArrayDeque<byte[]> packetQueue = new ArrayDeque<>();
     private Collection<WifiP2pServiceInfo> serviceSet = new ArrayList<>();
 
-    WifiP2pPeer(WifiP2pDevice peer) {
+    WifiP2pPeer() {
         resetLastSeen();
     }
 
@@ -26,16 +25,16 @@ public class WifiP2pPeer {
         return lastSeen;
     }
 
-    public int getRecvSequence() {
-        return recvSequence;
+    public int getAckNumber() {
+        return ackNumber;
     }
 
-    public void incrementRecvSequence() {
-        recvSequence++;
+    public void incrementAckNumber() {
+        ackNumber++;
     }
 
     public int getCurrentSequenceNumber() {
-        return sendSequence;
+        return seqNumber;
     }
 
     public void addPacket(byte[] packet) {
@@ -58,12 +57,12 @@ public class WifiP2pPeer {
         if (packetQueue.isEmpty()) {
             return new byte[0];
         } else {
-            sendSequence++;
+            seqNumber++;
             return packetQueue.remove();
         }
     }
 
-    public void setServiceSet(Collection serviceSet) {
+    public void setServiceSet(Collection<WifiP2pServiceInfo> serviceSet) {
         this.serviceSet = serviceSet;
     }
 

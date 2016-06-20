@@ -30,8 +30,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
-//TODO: MAke the code use only single requests
-
 public class NSDChannel {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
@@ -48,8 +46,8 @@ public class NSDChannel {
     private final int MAX_FRAGMENT_LENGTH;
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
-    // TODO: Find best value for thise intervals
-    private final int MAX_SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
+    // TODO: Find best value for these intervals
+    private final int MAX_SERVICE_DISCOVERY_INTERVAL = 10000; // in milliseconds
     private final int MIN_SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
     private final boolean LEGACY_DEVICE;
 
@@ -125,11 +123,11 @@ public class NSDChannel {
             }
         }
 
-        if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
+        if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getAckNumber()) {
             Log.d(TAG,"New Sequence Received (" + sequenceNumber + ") from " + remoteSID);
             byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
             receivedPacket(hexStringToBytes(remoteSID), bytes);
-            peerMap.get(remoteSID).incrementRecvSequence();
+            peerMap.get(remoteSID).incrementAckNumber();
             updatePost = true;
         }
 
@@ -300,7 +298,7 @@ public class NSDChannel {
         }
         WifiP2pPeer peer = peerMap.get(remoteSID);
         String uuid;
-        String ackNum = String.format(Locale.ENGLISH, "%04x", peer.getRecvSequence());
+        String ackNum = String.format(Locale.ENGLISH, "%04x", peer.getAckNumber());
         String uuidPrefix = "0000" + ackNum;
         int sequenceNumber = peer.getCurrentSequenceNumber();
         String device = "";
@@ -476,7 +474,7 @@ public class NSDChannel {
             if (peer.deviceName.matches("SERVAL[[0-9][a-f]]{16}")) {
                 remoteSID = peer.deviceName.substring(6);
                 if (!peerMap.containsKey(remoteSID)) {
-                    peerMap.put(remoteSID,new WifiP2pPeer(peer));
+                    peerMap.put(remoteSID,new WifiP2pPeer());
                     Log.d(TAG,"New Peer Found: " + remoteSID +" (" + peer.deviceAddress + ")");
                 } else {
                     peerMap.get(remoteSID).resetLastSeen();
