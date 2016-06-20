@@ -31,6 +31,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
+//TODO: MAke the code use only single requests
+
 public class NSDChannel {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
