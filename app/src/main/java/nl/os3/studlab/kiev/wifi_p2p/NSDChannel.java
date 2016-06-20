@@ -43,26 +43,28 @@ public class NSDChannel {
     private Timer serviceDiscoveryTimer = new Timer();
 
     private final int UNSPECIFIED_ERROR = 500;
-    private final int MAX_SERVICE_LENGTH = 948;
-    private final int MAX_BINARY_DATA_SIZE = MAX_SERVICE_LENGTH * 6 / 8; //(due to Base64 Encoding)
-    // Legacy devices (Pre API 21) have different limits.
-    private final int LEGACY_MAX_SERVICE_LENGTH = 764;
-    private final int LEGACY_MAX_BINARY_DATA_SIZE = LEGACY_MAX_SERVICE_LENGTH * 6 / 8; // (due to Base64 Encoding)
-    private final int LEGACY_MAX_FRAGMENT_LENGTH = 187;
+    private final int MAX_SERVICE_LENGTH;
+    private final int MAX_BINARY_DATA_SIZE;
+    private final int MAX_FRAGMENT_LENGTH;
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
     // TODO: Find best value for thise intervals
-    private final long SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
-    private final boolean legacy;
+    private final int MAX_SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
+    private final int MIN_SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
+    private final boolean LEGACY_DEVICE;
 
     public NSDChannel() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(WiFiApplication.context, WiFiApplication.context.getMainLooper(), null);
         localSID = generateRandomHexString(16);
+        LEGACY_DEVICE = (Build.VERSION.SDK_INT < 20);
+        MAX_SERVICE_LENGTH = (LEGACY_DEVICE) ? 764 : 948;
+        MAX_FRAGMENT_LENGTH = (LEGACY_DEVICE) ? 187 : MAX_SERVICE_LENGTH;
+        MAX_BINARY_DATA_SIZE = MAX_SERVICE_LENGTH * 6 / 8; //(due to Base64 Encoding)
+
         stopDeviceDiscovery();
         clearLocalServices();
         clearServiceRequests();
-        legacy = (Build.VERSION.SDK_INT < 20);
 
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
@@ -105,7 +107,7 @@ public class NSDChannel {
 
         resetServiceDiscoveryTimer();
         // TODO: Check for valid packet structure
-        // TODO: Check for changes to sequence or ack between packets
+        // TODO: Check for changes to sequence or ack between fragments
         for (String service : services) {
             serviceType = service.substring(43,44);
             Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
@@ -120,35 +122,19 @@ public class NSDChannel {
                     Log.e(TAG, "Unexpected Sequence Number Change: " + services.toString());
                     System.exit(UNSPECIFIED_ERROR);
                 }
-            /*
-            } else if (serviceType.equals("S")) {
-                Log.d(TAG,"Keep Alive Received From: " + remoteSID);
-            */
-            } else {
-                Log.d(TAG,"Ignoring Unknown Service Type: " + serviceType);
             }
         }
 
-        // TODO: Given well formed packet take action
-
-
-
         if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getRecvSequence()) {
-            Log.d(TAG,"New Sequence Received (" + sequenceNumber + ")");
+            Log.d(TAG,"New Sequence Received (" + sequenceNumber + ") from " + remoteSID);
             byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
             receivedPacket(hexStringToBytes(remoteSID), bytes);
             peerMap.get(remoteSID).incrementRecvSequence();
             updatePost = true;
         }
 
-
-            //IT can stay as it is need to decide if we will change it or not
-            //removeServiceSet(peerMap.get(remoteSID).removeServicesBefore(ackNumber));
-
-            //TODO:Add new packet, update current , Add empty ack postStringData("",remoteSID)
-
         if (ackNumber == peer.getCurrentSequenceNumber() + 1) {
-            Log.d(TAG,"New Ack Received (" + ackNumber + ")");
+            Log.d(TAG,"New Ack Received (" + ackNumber + ") from " + remoteSID);
             peer.removePacket();
             updatePost = true;
         }
@@ -156,8 +142,6 @@ public class NSDChannel {
         if (updatePost) {
             postPacket(remoteSID);
         }
-
-
     }
 
     private void receivedPacket(byte[] remoteAddress, byte[] data) {
@@ -212,7 +196,7 @@ public class NSDChannel {
     private void setServiceDiscoveryTimer() {
         Random randomGenerator = new Random();
         serviceDiscoveryTimer = new Timer();
-        long interval = SERVICE_DISCOVERY_INTERVAL + randomGenerator.nextInt(5000);
+        long interval = MIN_SERVICE_DISCOVERY_INTERVAL + randomGenerator.nextInt(MAX_SERVICE_DISCOVERY_INTERVAL-MIN_SERVICE_DISCOVERY_INTERVAL);
         serviceDiscoveryTimer.schedule(new TimerTask() {
             @Override
             public void run() {
@@ -288,13 +272,12 @@ public class NSDChannel {
     }
 
     private void postPacket(String remoteSID) {
-        int maxDataSize = (Build.VERSION.SDK_INT > 20) ? MAX_BINARY_DATA_SIZE : LEGACY_MAX_BINARY_DATA_SIZE;
         byte[] packet = peerMap.get(remoteSID).getPacket();
         int totalBytes = packet.length;
         boolean lastChunk = false;
         String sData;
         int start = 0;
-        int end = maxDataSize;
+        int end = MAX_BINARY_DATA_SIZE;
 
         while (!lastChunk) {
             if (end >= totalBytes) {
@@ -305,15 +288,13 @@ public class NSDChannel {
 
             postStringData(sData, remoteSID);
 
-            start += maxDataSize;
-            end += maxDataSize;
+            start += MAX_BINARY_DATA_SIZE;
+            end += MAX_BINARY_DATA_SIZE;
         }
     }
 
     private void postStringData(String sData, String remoteSID) {
-        int maxServiceLength = (Build.VERSION.SDK_INT > 20) ? MAX_SERVICE_LENGTH : LEGACY_MAX_SERVICE_LENGTH;
-        int fragmentSize = (Build.VERSION.SDK_INT > 20) ? MAX_SERVICE_LENGTH : LEGACY_MAX_FRAGMENT_LENGTH;
-        if (sData.length() > maxServiceLength) {
+        if (sData.length() > MAX_SERVICE_LENGTH) {
             Log.e(TAG,"More String Data Then Can be handled in single sequence");
             System.exit(UNSPECIFIED_ERROR);
         }
@@ -331,7 +312,7 @@ public class NSDChannel {
         ArrayList<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
         int stringLength = sData.length();
         int start = 0;
-        int end = fragmentSize;
+        int end = MAX_FRAGMENT_LENGTH;
         boolean lastFragment = false;
 
         removeServiceSet(peer.getServiceSet());
@@ -348,8 +329,8 @@ public class NSDChannel {
             Log.d(TAG,"Adding Service Info: " + uuid + "::X" + service);
             serviceInfos.add(serviceInfo);
 
-            start += fragmentSize;
-            end += fragmentSize;
+            start += MAX_FRAGMENT_LENGTH;
+            end += MAX_FRAGMENT_LENGTH;
         }
 
         peer.setServiceSet(serviceInfos);
@@ -399,7 +380,6 @@ public class NSDChannel {
 
     public void up() {
         setDeviceName("SERVAL" + localSID);
-        //createDefaultServices();
         startDeviceDiscovery();
         checkLostPeers();
         WiFiApplication.context.registerReceiver(receiver,intentFilter);
