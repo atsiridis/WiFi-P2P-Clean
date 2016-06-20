@@ -98,7 +98,7 @@ public class NSDChannel {
         int newSequenceNumber;
         int ackNumber=0;
         String base64data = "";
-        String serviceType = "";
+        String serviceType;
         Collections.sort(services);
         WifiP2pPeer peer = peerMap.get(remoteSID);
         boolean updatePost = false;
@@ -210,13 +210,15 @@ public class NSDChannel {
     }
 
     private void setServiceDiscoveryTimer() {
+        Random randomGenerator = new Random();
         serviceDiscoveryTimer = new Timer();
+        long interval = SERVICE_DISCOVERY_INTERVAL + randomGenerator.nextInt(5000);
         serviceDiscoveryTimer.schedule(new TimerTask() {
             @Override
             public void run() {
                 startServiceDiscovery();
             }
-        }, SERVICE_DISCOVERY_INTERVAL, SERVICE_DISCOVERY_INTERVAL);
+        }, interval, interval);
     }
 
     private void resetServiceDiscoveryTimer() {
@@ -447,19 +449,6 @@ public class NSDChannel {
             hexString += Integer.toHexString(randomGenerator.nextInt(16));
         }
         return hexString;
-    }
-
-    private void createDefaultServices() {
-        String uuid = "00000000-0000-0000-0000-000000000000";
-        String device = "";
-        String service = "S";
-        ArrayList<String> services = new ArrayList<>();
-        services.add(service);
-        String query = uuid + "::" + service;
-        WifiP2pUpnpServiceInfo serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
-        WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
-        addLocalService(serviceInfo);
-        addServiceRequest(serviceRequest);
     }
 
     /* Reflection */
