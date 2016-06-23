@@ -4,6 +4,7 @@ import android.app.Application;
 import android.util.Log;
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,7 +16,7 @@ public class WiFiApplication extends Application {
     private final String TAG = "OS3";
     private Random randomGenerator = new Random();
     private final int ERROR_UNSPECIFIED = 500;
-    public NSDChannel nsd;
+    public WifiP2pControl nsd;
     public static WiFiApplication context;
     private WiFiActivity activity;
     private int numBroadCasts = 0;
@@ -30,7 +31,7 @@ public class WiFiApplication extends Application {
 
         Log.d(TAG,"################ Initializing ################");
 
-        nsd = new NSDChannel();
+        nsd = new WifiP2pControl();
         nsd.up();
 
         //setTimer();
@@ -51,15 +52,15 @@ public class WiFiApplication extends Application {
     }
 
     public void sendTest(String remoteSID) {
-        byte[] bytes = generateRandomBytes(64);
-        Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
-        nsd.send(new BigInteger(remoteSID,16).toByteArray(), bytes);
+        ByteBuffer bytes = ByteBuffer.wrap(generateRandomBytes(64));
+        //Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
+        nsd.sendPacket(new BigInteger(remoteSID,16).toByteArray(), bytes);
     }
 
     public void sendBroadcast() {
-        byte[] bytes = generateRandomBytes(64);
-        Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
-        nsd.send(null, bytes);
+        ByteBuffer bytes = ByteBuffer.wrap(generateRandomBytes(64));
+        //Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
+        nsd.sendPacket(null, bytes);
     }
 
     public void setActivity(WiFiActivity activity) {

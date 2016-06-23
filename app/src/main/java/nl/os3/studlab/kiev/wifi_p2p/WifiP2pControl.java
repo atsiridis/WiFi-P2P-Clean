@@ -19,6 +19,7 @@ import android.util.Log;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,7 +31,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class NSDChannel {
+public class WifiP2pControl {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
     private Channel channel;
@@ -51,7 +52,7 @@ public class NSDChannel {
     private final int MIN_SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
     private final boolean LEGACY_DEVICE;
 
-    public NSDChannel() {
+    public WifiP2pControl() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(WiFiApplication.context, WiFiApplication.context.getMainLooper(), null);
         localSID = generateRandomHexString(16);
@@ -82,7 +83,7 @@ public class NSDChannel {
                 if (srcDevice.deviceName.length() != 22) {
                     Log.e(TAG,"ERROR: Unexpected Device Name: " + srcDevice.toString());
                 } else {
-                    receiveData(uniqueServiceNames, srcDevice.deviceName.substring(6));
+                    parseResponse(uniqueServiceNames, srcDevice.deviceName.substring(6));
                 }
             }
         };
@@ -93,7 +94,7 @@ public class NSDChannel {
 
     /* Receive Data */
 
-    private void receiveData(List<String> services, String remoteSID) {
+    private void parseResponse(List<String> services, String remoteSID) {
         int sequenceNumber = -1;
         int newSequenceNumber;
         int ackNumber=0;
@@ -123,22 +124,25 @@ public class NSDChannel {
             }
         }
 
-        if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getAckNumber()) {
-            Log.d(TAG,"New Sequence Received (" + sequenceNumber + ") from " + remoteSID);
+        if (base64data.length() + sequenceNumber > peer.getAckNumber()) {
+            Log.d(TAG,"New Sequence Received from " + remoteSID);
             byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
-            receivedPacket(hexStringToBytes(remoteSID), bytes);
-            peerMap.get(remoteSID).incrementAckNumber();
+            peer.recv(bytes);
+            byte[] packet = peer.recvPacket();
+            if (packet != null) {
+                receivedPacket(hexStringToBytes(remoteSID), bytes);
+            }
             updatePost = true;
         }
 
-        if (ackNumber == peer.getCurrentSequenceNumber() + 1) {
+        if (ackNumber > peer.getSequenceNumber()) {
             Log.d(TAG,"New Ack Received (" + ackNumber + ") from " + remoteSID);
-            peer.removePacket();
+            peer.updateSequence(ackNumber);
             updatePost = true;
         }
 
         if (updatePost) {
-            postPacket(remoteSID);
+            updatePost(remoteSID);
         }
     }
 
@@ -262,81 +266,56 @@ public class NSDChannel {
         });
     }
 
-    private void queueData(byte[] bytes, String remoteSID) {
+    private void queuePacket(String remoteSID, ByteBuffer bytes) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
-        boolean updatePost = !peer.isNextPacket();
-        peer.addPacket(bytes);
-        if (updatePost) { postPacket(remoteSID); }
+        peer.sendPacket(bytes);
+        updatePost(remoteSID);
     }
 
-    private void postPacket(String remoteSID) {
-        byte[] packet = peerMap.get(remoteSID).getPacket();
-        int totalBytes = packet.length;
-        boolean lastChunk = false;
-        String sData;
-        int start = 0;
-        int end = MAX_BINARY_DATA_SIZE;
-
-        while (!lastChunk) {
-            if (end >= totalBytes) {
-                end = totalBytes;
-                lastChunk = true;
-            }
-            sData = Base64.encodeToString(packet, start, end - start, Base64.NO_WRAP | Base64.NO_PADDING);
-
-            postStringData(sData, remoteSID);
-
-            start += MAX_BINARY_DATA_SIZE;
-            end += MAX_BINARY_DATA_SIZE;
-        }
-    }
-
-    private void postStringData(String sData, String remoteSID) {
-        if (sData.length() > MAX_SERVICE_LENGTH) {
-            Log.e(TAG,"More String Data Then Can be handled in single sequence");
-            System.exit(UNSPECIFIED_ERROR);
-        }
+    private void updatePost(String remoteSID) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
+        byte[] postData = peer.getPostData(MAX_BINARY_DATA_SIZE);
+        String base64Data = Base64.encodeToString(postData, Base64.NO_WRAP | Base64.NO_PADDING);
         String uuid;
-        String ackNum = String.format(Locale.ENGLISH, "%04x", peer.getAckNumber());
-        String uuidPrefix = "0000" + ackNum;
-        int sequenceNumber = peer.getCurrentSequenceNumber();
-        String device = "";
+        String uuidPrefix = String.format(Locale.ENGLISH, "%08x", peer.getAckNumber());
         String uuidSuffix = remoteSID.substring(0,4) + "-" + remoteSID.substring(4);
+        int sequenceNumber = peer.getSequenceNumber();
+        String device = "";
         String service;
         int fragmentNumber = 0;
         WifiP2pUpnpServiceInfo serviceInfo;
         ArrayList<String> services;
         ArrayList<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
-        int stringLength = sData.length();
+        int stringLength = base64Data.length();
         int start = 0;
         int end = MAX_FRAGMENT_LENGTH;
         boolean lastFragment = false;
 
         removeServiceSet(peer.getServiceSet());
-
         while (!lastFragment) {
-            if (end >= stringLength) { end = stringLength; lastFragment = true; }
+            if (end >= stringLength) {
+                end = stringLength;
+                lastFragment = true;
+            }
             uuid = String.format(Locale.ENGLISH, "%s-%04d-%04x-%s", uuidPrefix, fragmentNumber, sequenceNumber, uuidSuffix);
-            service = sData.substring(start,end);
+            service = base64Data.substring(start, end);
             services = new ArrayList<>();
             services.add("X" + service);
 
             serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
             addLocalService(serviceInfo);
-            Log.d(TAG,"Adding Service Info: " + uuid + "::X" + service);
+            Log.d(TAG, "Adding Service Info: " + uuid + "::X" + service);
             serviceInfos.add(serviceInfo);
 
             start += MAX_FRAGMENT_LENGTH;
             end += MAX_FRAGMENT_LENGTH;
         }
-
         peer.setServiceSet(serviceInfos);
     }
 
-    private void sendBroadcast(byte[] bytes) {
+    private void sendBroadcast(ByteBuffer bytes) {
         for (String key : peerMap.keySet()) {
-            queueData(bytes, key);
+            queuePacket(key, bytes);
         }
     }
 
@@ -396,13 +375,13 @@ public class NSDChannel {
         setDeviceName(Build.MODEL);
     }
 
-    public void send(byte[] remoteAddress, byte[] buffer) {
+    public void sendPacket(byte[] remoteAddress, ByteBuffer buffer) {
         if (remoteAddress == null || remoteAddress.length == 0) {
             sendBroadcast(buffer);
         } else {
             String hexRemoteAddress = bytesToHexString(remoteAddress);
             if (peerMap.containsKey(hexRemoteAddress)) {
-                queueData(buffer, hexRemoteAddress);
+                queuePacket(hexRemoteAddress, buffer);
             } else {
                 Log.w(TAG,"Discarding Data To Unknown Address: " + hexRemoteAddress);
             }
