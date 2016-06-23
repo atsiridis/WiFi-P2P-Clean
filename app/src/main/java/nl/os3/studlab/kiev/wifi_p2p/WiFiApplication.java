@@ -17,7 +17,7 @@ public class WiFiApplication extends Application {
     private final String TAG = "OS3";
     private Random randomGenerator = new Random();
     private final int ERROR_UNSPECIFIED = 500;
-    private final int MAX_PACKET_SIZE = 64;
+    private final int MAX_PACKET_SIZE = 1500;
     private final int MIN_PACKET_SIZE = 6;
     public WifiP2pControl wifiP2pControl;
     public static WiFiApplication context;

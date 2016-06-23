@@ -1,24 +1,26 @@
 package nl.os3.studlab.kiev.wifi_p2p;
 
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 
 public class WifiP2pPeer {
+    private final String TAG = "OS3";
     private final int BUFFER_SIZE = 65536;
     private ByteBuffer sendBuffer = ByteBuffer.allocate(BUFFER_SIZE);
     private ByteBuffer recvBuffer = ByteBuffer.allocate(BUFFER_SIZE);
     private int seqNumber = 0;
     private int ackNumber = 0;
     private long lastSeen;
-    private ArrayDeque<byte[]> packetQueue = new ArrayDeque<>();
+    private long firstSeen; // For Throughput Measurement
     private Collection<WifiP2pServiceInfo> serviceSet = new ArrayList<>();
 
     WifiP2pPeer() {
         resetLastSeen();
+        firstSeen = System.nanoTime(); // For Throughput Measurement
     }
 
     public void resetLastSeen() {
@@ -73,6 +75,8 @@ public class WifiP2pPeer {
         int count = data.length - offset;
         recvBuffer.put(data, offset, count);
         ackNumber += count;
+        float tp = ackNumber / ((System.nanoTime() - firstSeen) / 1_000_000_000F);
+        Log.d(TAG, String.format("Throughput: %.3f", tp));
     }
 
     public byte[] getPacket() {
