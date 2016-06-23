@@ -131,11 +131,14 @@ public class WifiP2pControl {
                     + ", Ack: " + ackNumber
                     + ", Seq: " + sequenceNumber
                     + ", Data: " + base64data);
-            if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getAckNumber()) {
-                Log.d(TAG, "New Sequence Received (" + sequenceNumber + ") from " + remoteSID);
-                byte[] bytes = Base64.decode(base64data, Base64.DEFAULT);
+            if (base64data.length() + sequenceNumber > peer.getAckNumber()) {
+                Log.d(TAG,"New Sequence Received from " + remoteSID);
+                byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
+                peer.recv(bytes);
+                updatePost = true;
+                byte[] packet = peer.recvPacket();
                 try {
-                    receivedPacket(hexStringToBytes(remoteSID), bytes);
+                    receivedPacket(hexStringToBytes(remoteSID), packet);
                     peerMap.get(remoteSID).incrementAckNumber();
                     updatePost = true;
                 } catch (IOException e) {
@@ -148,9 +151,14 @@ public class WifiP2pControl {
                 peer.removePacket();
                 updatePost = true;
             }
+        if (ackNumber > peer.getSequenceNumber()) {
+            Log.d(TAG,"New Ack Received (" + ackNumber + ") from " + remoteSID);
+            peer.updateSequence(ackNumber);
+            updatePost = true;
+        }
 
             if (updatePost) {
-                postPacket(remoteSID);
+                updatePost(remoteSID);
             }
         }
     }
@@ -272,80 +280,56 @@ public class WifiP2pControl {
         });
     }
 
-    private void queueData(String remoteSID, ByteBuffer data) {
+    private void queuePacket(String remoteSID, ByteBuffer bytes) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
-        peer.write(data);
+        peer.sendPacket(bytes);
         updatePost(remoteSID);
     }
 
-    private void postPacket(String remoteSID) {
-        byte[] packet = peerMap.get(remoteSID).getPacket();
-        int totalBytes = packet.length;
-        boolean lastChunk = false;
-        String sData;
-        int start = 0;
-        int end = MAX_BINARY_DATA_SIZE;
-
-        while (!lastChunk) {
-            if (end >= totalBytes) {
-                end = totalBytes;
-                lastChunk = true;
-            }
-            sData = Base64.encodeToString(packet, start, end - start, Base64.NO_WRAP | Base64.NO_PADDING);
-
-            postStringData(sData, remoteSID);
-
-            start += MAX_BINARY_DATA_SIZE;
-            end += MAX_BINARY_DATA_SIZE;
-        }
-    }
-
-    private void postStringData(String sData, String remoteSID) {
-        if (sData.length() > MAX_SERVICE_LENGTH) {
-            Log.e(TAG,"More String Data Then Can be handled in single sequence");
-            System.exit(UNSPECIFIED_ERROR);
-        }
+    private void updatePost(String remoteSID) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
+        byte[] postData = peer.getPostData(MAX_BINARY_DATA_SIZE);
+        String base64Data = Base64.encodeToString(postData, Base64.NO_WRAP | Base64.NO_PADDING);
         String uuid;
-        String ackNum = String.format(Locale.ENGLISH, "%04x", peer.getAckNumber());
-        String uuidPrefix = "0000" + ackNum;
-        int sequenceNumber = peer.getCurrentSequenceNumber();
-        String device = "";
+        String uuidPrefix = String.format(Locale.ENGLISH, "%08x", peer.getAckNumber());
         String uuidSuffix = remoteSID.substring(0,4) + "-" + remoteSID.substring(4);
+        int sequenceNumber = peer.getSequenceNumber();
+        String device = "";
         String service;
         int fragmentNumber = 0;
         WifiP2pUpnpServiceInfo serviceInfo;
         ArrayList<String> services;
         ArrayList<WifiP2pServiceInfo> serviceInfos = new ArrayList<>();
-        int stringLength = sData.length();
+        int stringLength = base64Data.length();
         int start = 0;
         int end = MAX_FRAGMENT_LENGTH;
         boolean lastFragment = false;
 
         removeServiceSet(peer.getServiceSet());
-
         while (!lastFragment) {
-            if (end >= stringLength) { end = stringLength; lastFragment = true; }
+            if (end >= stringLength) {
+                end = stringLength;
+                lastFragment = true;
+            }
             uuid = String.format(Locale.ENGLISH, "%s-%04d-%04x-%s", uuidPrefix, fragmentNumber, sequenceNumber, uuidSuffix);
-            service = sData.substring(start,end);
+            service = base64Data.substring(start, end);
             services = new ArrayList<>();
             services.add("X" + service);
 
             serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
             addLocalService(serviceInfo);
-            Log.d(TAG,"Adding Service Info: " + uuid + "::X" + service);
+            Log.d(TAG, "Adding Service Info: " + uuid + "::X" + service);
             serviceInfos.add(serviceInfo);
 
             start += MAX_FRAGMENT_LENGTH;
             end += MAX_FRAGMENT_LENGTH;
         }
-
         peer.setServiceSet(serviceInfos);
     }
 
-    private void sendBroadcast(ByteBuffer data) {
+    private void sendBroadcast(ByteBuffer bytes) {
         for (String key : peerMap.keySet()) {
-            queueData(key, data);
+            queuePacket(key, bytes);
         }
     }
 
@@ -408,15 +392,15 @@ public class WifiP2pControl {
         setDeviceName(Build.MODEL);
     }
 
-    public void sendPacket(byte[] remoteAddress, ByteBuffer data) {
+    public void sendPacket(byte[] remoteAddress, ByteBuffer buffer) {
         if (remoteAddress == null || remoteAddress.length == 0) {
             Log.d(TAG,"Wifi-P2P: Sending Broadcast Packet");
-            sendBroadcast(data);
+            sendBroadcast(buffer);
         } else {
             String hexRemoteAddress = bytesToHexString(remoteAddress);
             if (peerMap.containsKey(hexRemoteAddress)) {
                 Log.d(TAG,"Wifi-P2P: Sending Packet to " + hexRemoteAddress);
-                queueData(hexRemoteAddress, data);
+                queueData(hexRemoteAddress, buffer);
             } else {
                 Log.w(TAG,"Discarding Data To Unknown Address: " + hexRemoteAddress);
             }

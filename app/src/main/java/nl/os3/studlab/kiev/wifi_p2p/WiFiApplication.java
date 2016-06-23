@@ -4,6 +4,7 @@ import android.app.Application;
 import android.util.Log;
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,15 +52,15 @@ public class WiFiApplication extends Application {
     }
 
     public void sendTest(String remoteSID) {
-        byte[] bytes = generateRandomBytes(64);
-        Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
-        wifiP2pControl.sendPacket(new BigInteger(remoteSID,16).toByteArray(), bytes);
+        ByteBuffer bytes = ByteBuffer.wrap(generateRandomBytes(64));
+        //Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
+        nsd.sendPacket(new BigInteger(remoteSID,16).toByteArray(), bytes);
     }
 
     public void sendBroadcast() {
-        byte[] bytes = generateRandomBytes(64);
-        Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
-        wifiP2pControl.sendPacket(null, bytes);
+        ByteBuffer bytes = ByteBuffer.wrap(generateRandomBytes(64));
+        //Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
+        nsd.sendPacket(null, bytes);
     }
 
     public void setActivity(WiFiActivity activity) {
