@@ -15,7 +15,7 @@ public class WiFiApplication extends Application {
     private final String TAG = "OS3";
     private Random randomGenerator = new Random();
     private final int ERROR_UNSPECIFIED = 500;
-    public NSDChannel nsd;
+    public WifiP2pControl wifiP2pControl;
     public static WiFiApplication context;
     private WiFiActivity activity;
     private int numBroadCasts = 0;
@@ -30,8 +30,8 @@ public class WiFiApplication extends Application {
 
         Log.d(TAG,"################ Initializing ################");
 
-        nsd = new NSDChannel();
-        nsd.up();
+        wifiP2pControl = new WifiP2pControl();
+        wifiP2pControl.up();
 
         //setTimer();
 
@@ -53,13 +53,13 @@ public class WiFiApplication extends Application {
     public void sendTest(String remoteSID) {
         byte[] bytes = generateRandomBytes(64);
         Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
-        nsd.send(new BigInteger(remoteSID,16).toByteArray(), bytes);
+        wifiP2pControl.sendPacket(new BigInteger(remoteSID,16).toByteArray(), bytes);
     }
 
     public void sendBroadcast() {
         byte[] bytes = generateRandomBytes(64);
         Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
-        nsd.send(null, bytes);
+        wifiP2pControl.sendPacket(null, bytes);
     }
 
     public void setActivity(WiFiActivity activity) {
@@ -85,7 +85,7 @@ public class WiFiApplication extends Application {
     }
 
     public void exit(int exitCode) {
-        nsd.down();
+        wifiP2pControl.down();
         Log.d(TAG,"Exiting");
         System.exit(exitCode);
     }

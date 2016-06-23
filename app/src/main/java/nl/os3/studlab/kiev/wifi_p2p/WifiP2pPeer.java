@@ -2,16 +2,26 @@ package nl.os3.studlab.kiev.wifi_p2p;
 
 import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
 
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class WifiP2pPeer {
+    private final int BUFFER_SIZE = 65536;
+    private final int POST_SIZE = 128;
     private int seqNumber = 0;
     private int ackNumber = 0;
     private long lastSeen;
     private ArrayDeque<byte[]> packetQueue = new ArrayDeque<>();
     private Collection<WifiP2pServiceInfo> serviceSet = new ArrayList<>();
+    // TODO: Set Current Data Size based on MTU
+
+    private int dataOffset = 0;
+    private ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
 
     WifiP2pPeer() {
         resetLastSeen();
@@ -70,4 +80,16 @@ public class WifiP2pPeer {
         return serviceSet;
     }
 
+    public void write(ByteBuffer src) {
+        buffer.put(src);
+    }
+
+    public Byte[] getPostData() {
+        ArrayList<Byte> postData = new ArrayList<>();
+        int count = Math.min(POST_SIZE - dataOffset, buffer.limit());
+        for (int i = 0; i < count; i++) {
+            postData.add(buffer.get(i));
+        }
+        buffer.get(dst);
+    }
 }

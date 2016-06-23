@@ -16,9 +16,11 @@ import android.os.Build;
 import android.util.Base64;
 import android.util.Log;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,7 +32,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class NSDChannel {
+public class WifiP2pControl {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
     private Channel channel;
@@ -47,11 +49,11 @@ public class NSDChannel {
     private final long expiretime = 240000000000L; // 4 min
     private final long checkPeerLostInterval = 10000L; // 10 sec
     // TODO: Find best value for these intervals
-    private final int MAX_SERVICE_DISCOVERY_INTERVAL = 10000; // in milliseconds
-    private final int MIN_SERVICE_DISCOVERY_INTERVAL = 5000; // in milliseconds
+    private final int MAX_SERVICE_DISCOVERY_INTERVAL = 15000; // in milliseconds
+    private final int MIN_SERVICE_DISCOVERY_INTERVAL = 10000; // in milliseconds
     private final boolean LEGACY_DEVICE;
 
-    public NSDChannel() {
+    public WifiP2pControl() {
         manager = (WifiP2pManager) WiFiApplication.context.getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(WiFiApplication.context, WiFiApplication.context.getMainLooper(), null);
         localSID = generateRandomHexString(16);
@@ -82,7 +84,7 @@ public class NSDChannel {
                 if (srcDevice.deviceName.length() != 22) {
                     Log.e(TAG,"ERROR: Unexpected Device Name: " + srcDevice.toString());
                 } else {
-                    receiveData(uniqueServiceNames, srcDevice.deviceName.substring(6));
+                    parseResponse(uniqueServiceNames, srcDevice.deviceName.substring(6));
                 }
             }
         };
@@ -93,10 +95,11 @@ public class NSDChannel {
 
     /* Receive Data */
 
-    private void receiveData(List<String> services, String remoteSID) {
+    private void parseResponse(List<String> services, String remoteSID) {
         int sequenceNumber = -1;
         int newSequenceNumber;
         int ackNumber=0;
+        boolean fault = false;
         String base64data = "";
         String serviceType;
         Collections.sort(services);
@@ -108,7 +111,7 @@ public class NSDChannel {
         // TODO: Check for changes to sequence or ack between fragments
         for (String service : services) {
             serviceType = service.substring(43,44);
-            Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
+
             if (serviceType.equals("X")) {
                 //Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
                 newSequenceNumber = Integer.valueOf(service.substring(19, 23), 16);
@@ -117,33 +120,39 @@ public class NSDChannel {
                     sequenceNumber = newSequenceNumber;
                     base64data += service.substring(44);
                 } else {
-                    Log.e(TAG, "Unexpected Sequence Number Change: " + services.toString());
-                    System.exit(UNSPECIFIED_ERROR);
+                    Log.e(TAG, "Discarding Malformed Data");
+                    fault = true;
                 }
             }
         }
 
-        if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getAckNumber()) {
-            Log.d(TAG,"New Sequence Received (" + sequenceNumber + ") from " + remoteSID);
-            byte[] bytes  = Base64.decode(base64data, Base64.DEFAULT);
-            receivedPacket(hexStringToBytes(remoteSID), bytes);
-            peerMap.get(remoteSID).incrementAckNumber();
-            updatePost = true;
-        }
+        if (!fault) {
+            Log.d(TAG,"Data Received from: " + remoteSID
+                    + ", Ack: " + ackNumber
+                    + ", Seq: " + sequenceNumber
+                    + ", Data: " + base64data);
+            if (base64data.length() != 0 && sequenceNumber == peerMap.get(remoteSID).getAckNumber()) {
+                Log.d(TAG, "New Sequence Received (" + sequenceNumber + ") from " + remoteSID);
+                byte[] bytes = Base64.decode(base64data, Base64.DEFAULT);
+                try {
+                    receivedPacket(hexStringToBytes(remoteSID), bytes);
+                    peerMap.get(remoteSID).incrementAckNumber();
+                    updatePost = true;
+                } catch (IOException e) {
+                    Log.e(TAG, e.getMessage(), e);
+                }
+            }
 
-        if (ackNumber == peer.getCurrentSequenceNumber() + 1) {
-            Log.d(TAG,"New Ack Received (" + ackNumber + ") from " + remoteSID);
-            peer.removePacket();
-            updatePost = true;
-        }
+            if (ackNumber == peer.getCurrentSequenceNumber() + 1) {
+                Log.d(TAG, "New Ack Received (" + ackNumber + ") from " + remoteSID);
+                peer.removePacket();
+                updatePost = true;
+            }
 
-        if (updatePost) {
-            postPacket(remoteSID);
+            if (updatePost) {
+                postPacket(remoteSID);
+            }
         }
-    }
-
-    private void receivedPacket(byte[] remoteAddress, byte[] data) {
-        // Method Will be provided by AbstractExternalInterface
     }
 
     /* Control */
@@ -199,8 +208,9 @@ public class NSDChannel {
             @Override
             public void run() {
                 startServiceDiscovery();
+                resetServiceDiscoveryTimer();
             }
-        }, interval, interval);
+        }, interval);
     }
 
     private void resetServiceDiscoveryTimer() {
@@ -262,11 +272,10 @@ public class NSDChannel {
         });
     }
 
-    private void queueData(byte[] bytes, String remoteSID) {
+    private void queueData(String remoteSID, ByteBuffer data) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
-        boolean updatePost = !peer.isNextPacket();
-        peer.addPacket(bytes);
-        if (updatePost) { postPacket(remoteSID); }
+        peer.write(data);
+        updatePost(remoteSID);
     }
 
     private void postPacket(String remoteSID) {
@@ -334,9 +343,9 @@ public class NSDChannel {
         peer.setServiceSet(serviceInfos);
     }
 
-    private void sendBroadcast(byte[] bytes) {
+    private void sendBroadcast(ByteBuffer data) {
         for (String key : peerMap.keySet()) {
-            queueData(bytes, key);
+            queueData(key, data);
         }
     }
 
@@ -376,6 +385,9 @@ public class NSDChannel {
 
     /* Interface Implementation */
 
+    // Method Will be provided by AbstractExternalInterface
+    private void receivedPacket(byte[] remoteAddress, byte[] data) throws IOException{};
+
     public void up() {
         setDeviceName("SERVAL" + localSID);
         startDeviceDiscovery();
@@ -396,13 +408,15 @@ public class NSDChannel {
         setDeviceName(Build.MODEL);
     }
 
-    public void send(byte[] remoteAddress, byte[] buffer) {
+    public void sendPacket(byte[] remoteAddress, ByteBuffer data) {
         if (remoteAddress == null || remoteAddress.length == 0) {
-            sendBroadcast(buffer);
+            Log.d(TAG,"Wifi-P2P: Sending Broadcast Packet");
+            sendBroadcast(data);
         } else {
             String hexRemoteAddress = bytesToHexString(remoteAddress);
             if (peerMap.containsKey(hexRemoteAddress)) {
-                queueData(buffer, hexRemoteAddress);
+                Log.d(TAG,"Wifi-P2P: Sending Packet to " + hexRemoteAddress);
+                queueData(hexRemoteAddress, data);
             } else {
                 Log.w(TAG,"Discarding Data To Unknown Address: " + hexRemoteAddress);
             }
