@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pManager;
@@ -386,6 +387,11 @@ public class WifiP2pControl {
     }
 
     public void up() {
+        WifiManager wifi = (WifiManager) WiFiApplication.context.getSystemService(Context.WIFI_SERVICE);
+        if (wifi.isWifiEnabled()){
+            Log.d(TAG,"WiFi is off exitting");
+            WiFiApplication.context.exit(0);
+        }
         setDeviceName(DEVICE_NAME_PREFIX + localSID);
         startDeviceDiscovery();
         checkLostPeers();
