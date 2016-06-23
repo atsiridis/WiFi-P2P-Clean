@@ -38,7 +38,6 @@ public class WiFiApplication extends Application {
         wifiP2pControl.up();
 
         //setTimer();
-
     }
 
     private void setTimer() {

@@ -59,7 +59,7 @@ public class WifiP2pControl {
         channel = manager.initialize(WiFiApplication.context, WiFiApplication.context.getMainLooper(), null);
         localSID = generateRandomHexString(16);
         LEGACY_DEVICE = (Build.VERSION.SDK_INT < 20);
-        MAX_SERVICE_LENGTH = (LEGACY_DEVICE) ? 764 : 948;
+        MAX_SERVICE_LENGTH = (LEGACY_DEVICE) ? 764 : 932; // 764 or 948 tested
         MAX_FRAGMENT_LENGTH = (LEGACY_DEVICE) ? 187 : MAX_SERVICE_LENGTH;
         MAX_BINARY_DATA_SIZE = MAX_SERVICE_LENGTH * 6 / 8; // 573 or 711, due to Base64 Encoding
 
@@ -480,9 +480,12 @@ public class WifiP2pControl {
     private void updatePeerList(WifiP2pDeviceList devices) {
         Collection<WifiP2pDevice> peers = devices.getDeviceList();
         String remoteSID;
+        int wifiPeers = peers.size();
+        int servalPeers = 0;
 
         for (WifiP2pDevice peer : peers) {
             if (peer.deviceName.matches(DEVICE_NAME_PREFIX + "[[0-9][a-f]]{16}")) {
+                servalPeers++;
                 remoteSID = peer.deviceName.substring(6);
                 if (!peerMap.containsKey(remoteSID)) {
                     peerMap.put(remoteSID,new WifiP2pPeer());
@@ -492,6 +495,7 @@ public class WifiP2pControl {
                 }
             }
         }
+        Log.d(TAG, " Serval Peers: " + servalPeers + "/"  + wifiPeers);
         WiFiApplication.context.setPeers(peerMap.keySet()); // For Debugging
     }
 
