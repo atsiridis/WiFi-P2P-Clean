@@ -3,6 +3,7 @@ package nl.os3.studlab.kiev.wifi_p2p;
 import android.app.Application;
 import android.util.Log;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -16,6 +17,8 @@ public class WiFiApplication extends Application {
     private final String TAG = "OS3";
     private Random randomGenerator = new Random();
     private final int ERROR_UNSPECIFIED = 500;
+    private final int MAX_PACKET_SIZE = 64;
+    private final int MIN_PACKET_SIZE = 6;
     public WifiP2pControl wifiP2pControl;
     public static WiFiApplication context;
     private WiFiActivity activity;
@@ -52,15 +55,25 @@ public class WiFiApplication extends Application {
     }
 
     public void sendTest(String remoteSID) {
-        ByteBuffer bytes = ByteBuffer.wrap(generateRandomBytes(64));
-        //Log.d(TAG,"Sending Data to " + remoteSID + ": md5sum[" + md5sum(bytes) + "]");
-        nsd.sendPacket(new BigInteger(remoteSID,16).toByteArray(), bytes);
+        byte[] bytes = generateRandomBytes(MAX_PACKET_SIZE,MIN_PACKET_SIZE);
+        ByteBuffer packet = ByteBuffer.wrap(bytes);
+        Log.d(TAG,"Sending Packet To: " + remoteSID
+                + ", Len: " + bytes.length
+                + ", md5sum[" + md5sum(bytes) + "]");
+        wifiP2pControl.sendPacket(new BigInteger(remoteSID,16).toByteArray(), packet);
     }
 
     public void sendBroadcast() {
-        ByteBuffer bytes = ByteBuffer.wrap(generateRandomBytes(64));
-        //Log.d(TAG,"Broadcasting: md5sum[" + md5sum(bytes) + "]");
-        nsd.sendPacket(null, bytes);
+        byte[] bytes = generateRandomBytes(MAX_PACKET_SIZE,MIN_PACKET_SIZE);
+        ByteBuffer packet = ByteBuffer.wrap(bytes);
+        Log.d(TAG,"Broadcasting Packet, Len: " + bytes.length + ", md5sum[" + md5sum(bytes) + "]");
+        wifiP2pControl.sendPacket(null, packet);
+    }
+
+    public void receivedPacket(byte[] remoteAddress, byte[] packet){
+        Log.d(TAG,"Packet Received From: " + bytesToHexString(remoteAddress)
+                + ", Len: " + packet.length
+                + ", md5sum[" + md5sum(packet) + "]");
     }
 
     public void setActivity(WiFiActivity activity) {
@@ -92,6 +105,10 @@ public class WiFiApplication extends Application {
     }
 
     /* Util */
+
+    private byte[] generateRandomBytes(int max, int min) {
+        return generateRandomBytes(randomGenerator.nextInt(max-min) + min);
+    }
 
     private byte[] generateRandomBytes(int length) {
         byte[] bytes = new byte[length];

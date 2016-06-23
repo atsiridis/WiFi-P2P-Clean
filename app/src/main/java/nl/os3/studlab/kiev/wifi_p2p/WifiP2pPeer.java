@@ -35,6 +35,7 @@ public class WifiP2pPeer {
 
     public void updateSequence(int ackReceived) {
         int bytesAcknowledged = ackReceived - seqNumber;
+        sendBuffer.flip();
         sendBuffer.position(bytesAcknowledged);
         sendBuffer.compact();
         seqNumber += bytesAcknowledged;
@@ -52,13 +53,13 @@ public class WifiP2pPeer {
         return serviceSet;
     }
 
-    public void sendPacket(ByteBuffer data) {
-        sendBuffer.putShort((short) data.remaining());
-        sendBuffer.put(data);
+    public void queuePacket(ByteBuffer packet) {
+        sendBuffer.putShort((short) packet.remaining());
+        sendBuffer.put(packet);
     }
 
     public byte[] getPostData(int maxPostData) {
-        int count = Math.min(maxPostData, sendBuffer.remaining());
+        int count = Math.min(maxPostData, sendBuffer.position());
         byte[] postData = new byte[count];
 
         for (int i = 0; i < count; i++) {
@@ -67,16 +68,19 @@ public class WifiP2pPeer {
         return postData;
     }
 
-    public void recv(byte[] data) {
-        ackNumber += data.length;
-        recvBuffer.put(data);
+    public void recvData(int seqNumber, byte[] data) {
+        int offset = ackNumber - seqNumber;
+        int count = data.length - offset;
+        recvBuffer.put(data, offset, count);
+        ackNumber += count;
     }
 
-    public byte[] recvPacket() {
+    public byte[] getPacket() {
         if (recvBuffer.remaining() > 2) {
             short packetSize = recvBuffer.getShort(0);
-            if (recvBuffer.remaining() >= packetSize + 2) {
+            if (recvBuffer.position() >= packetSize + 2) {
                 byte[] packet = new byte[packetSize];
+                recvBuffer.flip();
                 recvBuffer.position(2);
                 recvBuffer.get(packet);
                 recvBuffer.compact();
