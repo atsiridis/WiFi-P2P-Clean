@@ -42,7 +42,8 @@ public class WifiP2pControl {
     private IntentFilter intentFilter = new IntentFilter();
     private Timer serviceDiscoveryTimer = new Timer();
 
-    private final String DEVICE_NAME_PREFIX = "SERXAL";
+    private final String DEVICE_NAME_PREFIX = "SERVAL"; // Max 6 Characters
+    private final String SERVICE_PREFIX = "X"; // Single Character
     private final int UNSPECIFIED_ERROR = 500;
     private final int MAX_SERVICE_LENGTH;
     private final int MAX_BINARY_DATA_SIZE;
@@ -51,7 +52,7 @@ public class WifiP2pControl {
     private final long checkPeerLostInterval = 10000L; // 10 sec
     // TODO: Find best value for these intervals
     private final int MAX_SERVICE_DISCOVERY_INTERVAL = 20000; // in milliseconds
-    private final int MIN_SERVICE_DISCOVERY_INTERVAL = 15000; // in milliseconds
+    private final int MIN_SERVICE_DISCOVERY_INTERVAL = 18000; // in milliseconds
     private final boolean LEGACY_DEVICE;
 
     public WifiP2pControl() {
@@ -248,7 +249,7 @@ public class WifiP2pControl {
 
     private void addServiceRequest() {
         String localID  = localSID.substring(0, 4) + "-" + localSID.substring(4);
-        String query = String.format(Locale.ENGLISH, "-%s::X",  localID);
+        String query = String.format(Locale.ENGLISH, "-%s::%s", SERVICE_PREFIX, localID);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
         Log.d(TAG,"Adding Service Request: " + query);
         addServiceRequest(serviceRequest);
@@ -322,11 +323,10 @@ public class WifiP2pControl {
                 end = stringLength;
                 lastFragment = true;
             }
-            uuid = String.format(Locale.ENGLISH, "%s-%04d-%04x-%s", uuidPrefix, fragmentNumber, sequenceNumber, uuidSuffix);
+            uuid = String.format(Locale.ENGLISH, "%s-%04d-%04x-%s", uuidPrefix, fragmentNumber++, sequenceNumber, uuidSuffix);
             service = base64Data.substring(start, end);
             services = new ArrayList<>();
-            services.add("X" + service);
-
+            services.add(SERVICE_PREFIX + service);
             serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
             addLocalService(serviceInfo);
             //Log.d(TAG, "Adding Service Info: " + uuid + "::X" + service);
