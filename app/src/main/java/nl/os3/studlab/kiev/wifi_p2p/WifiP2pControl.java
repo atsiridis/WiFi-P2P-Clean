@@ -33,6 +33,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
+// TODO: Implement Ack and Seq Rollover
+
 public class WifiP2pControl {
     private final String TAG = "OS3";
     private WifiP2pManager manager;
@@ -85,6 +87,8 @@ public class WifiP2pControl {
             @Override
             public void onUpnpServiceAvailable(List<String> uniqueServiceNames, WifiP2pDevice srcDevice) {
                 if (srcDevice.deviceName.length() != 22) {
+                    // TODO: Handle devices with blank names better
+                    // TODO: Maybe encode SID in response?
                     Log.e(TAG,"ERROR: Unexpected Device Name: " + srcDevice.toString());
                 } else {
                     parseResponse(uniqueServiceNames, srcDevice.deviceName.substring(6));
@@ -101,22 +105,19 @@ public class WifiP2pControl {
     private void parseResponse(List<String> services, String remoteSID) {
         int sequenceNumber = -1;
         int newSequenceNumber;
-        int ackNumber=0;
+        int ackNumber = 0;
         boolean fault = false;
         String base64Data = "";
-        String serviceType;
         Collections.sort(services);
         WifiP2pPeer peer = peerMap.get(remoteSID);
         boolean updatePost = false;
 
         resetServiceDiscoveryTimer();
         // TODO: Check for valid packet structure
-        // TODO: Should all fragments have same UUID
-        // TODO: or should they each have own sequence number
+        // TODO: Should all fragments have same UUID? (except frag num)
         for (String service : services) {
-            serviceType = service.substring(43,44);
 
-            if (serviceType.equals("X")) {
+            if (service.substring(43,44).equals(SERVICE_PREFIX)) {
                 //Log.d(TAG,"Data Received: " + remoteSID + "::" + service);
                 newSequenceNumber = Integer.valueOf(service.substring(19, 23), 16);
                 ackNumber = Integer.valueOf(service.substring(9, 13), 16);
@@ -330,7 +331,7 @@ public class WifiP2pControl {
             services.add(SERVICE_PREFIX + service);
             serviceInfo = WifiP2pUpnpServiceInfo.newInstance(uuid, device, services);
             addLocalService(serviceInfo);
-            //Log.d(TAG, "Adding Service Info: " + uuid + "::X" + service);
+            //Log.d(TAG, "Adding Service Info: " + uuid + "::" + SERVICE_PREFIX + service);
             serviceInfos.add(serviceInfo);
 
             start += MAX_FRAGMENT_LENGTH;
