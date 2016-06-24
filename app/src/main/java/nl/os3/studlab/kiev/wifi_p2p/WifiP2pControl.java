@@ -251,7 +251,7 @@ public class WifiP2pControl {
 
     private void addServiceRequest() {
         String localID  = localSID.substring(0, 4) + "-" + localSID.substring(4);
-        String query = String.format(Locale.ENGLISH, "-%s::%s", SERVICE_PREFIX, localID);
+        String query = String.format(Locale.ENGLISH, "-%s::%s", localID, SERVICE_PREFIX);
         WifiP2pUpnpServiceRequest serviceRequest = WifiP2pUpnpServiceRequest.newInstance(query);
         Log.d(TAG,"Adding Service Request: " + query);
         addServiceRequest(serviceRequest);
