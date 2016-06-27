@@ -42,7 +42,7 @@ public class WifiP2pControl {
     private WifiP2pManager manager;
     private Channel channel;
     private String localSID;
-    private Map<String,WifiP2pPeer> peerMap = new ConcurrentHashMap<>();
+    private Map<String,WifiP2pPeer> peerList = new ConcurrentHashMap<>();
     private Timer checkLastSeenPeer;
     private IntentFilter intentFilter = new IntentFilter();
     private Timer serviceDiscoveryTimer = new Timer();
@@ -79,7 +79,6 @@ public class WifiP2pControl {
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION);
         setResponseListener();
-        addServiceRequest();
     }
 
     /* Init */
@@ -111,7 +110,7 @@ public class WifiP2pControl {
         boolean fault = false;
         String base64Data = "";
         Collections.sort(services);
-        WifiP2pPeer peer = peerMap.get(remoteSID);
+        WifiP2pPeer peer = peerList.get(remoteSID);
         boolean updatePost = false;
 
         resetServiceDiscoveryTimer();
@@ -159,7 +158,7 @@ public class WifiP2pControl {
     }
 
     private void deliverPackets(String remoteSID) {
-        WifiP2pPeer peer = peerMap.get(remoteSID);
+        WifiP2pPeer peer = peerList.get(remoteSID);
 
         byte[] packet = peer.getPacket();
         while (packet != null) {
@@ -291,17 +290,20 @@ public class WifiP2pControl {
     }
 
     private void queuePacket(String remoteSID, ByteBuffer packet) {
-        WifiP2pPeer peer = peerMap.get(remoteSID);
-        //Log.d(TAG, "Queuing Packet(" + packet.remaining() + ") to " + remoteSID);
-        int count = packet.remaining();
-        int offset = packet.position();
-        byte[] bytes = new byte[count];
-        for (int i = 0; i < count; i++) {
-            bytes[i] = packet.get(offset + i);
+        WifiP2pPeer peer = peerList.get(remoteSID);
+        if (!peer.isFull()) {
+            int count = packet.remaining();
+            int offset = packet.position();
+            byte[] bytes = new byte[count];
+            for (int i = 0; i < count; i++) {
+                bytes[i] = packet.get(offset + i);
+            }
+            Log.d(TAG, remoteSID + " <- [" + md5sum(bytes) + "](" + bytes.length + ")");
+            peer.queuePacket(packet);
+            updatePost(remoteSID);
+        } else {
+            Log.d(TAG, "Buffer Full, Discarding Packet");
         }
-        Log.d(TAG, remoteSID + " <- [" + md5sum(bytes) + "](" + bytes.length + ") Time:"+ System.nanoTime() );
-        peer.queuePacket(packet);
-        updatePost(remoteSID);
     }
     private String md5sum(byte[] bytes) {
         try {
@@ -313,7 +315,7 @@ public class WifiP2pControl {
         }
     }
     private void updatePost(String remoteSID) {
-        WifiP2pPeer peer = peerMap.get(remoteSID);
+        WifiP2pPeer peer = peerList.get(remoteSID);
         byte[] postData = peer.getPostData(MAX_BINARY_DATA_SIZE);
         //Log.d(TAG, "Updating Post(" + postData.length + ") to " + remoteSID);
         String base64Data = Base64.encodeToString(postData, Base64.NO_WRAP | Base64.NO_PADDING);
@@ -359,8 +361,8 @@ public class WifiP2pControl {
     }
 
     private void sendBroadcast(ByteBuffer bytes) {
-        for (String key : peerMap.keySet()) {
-            queuePacket(key, bytes);
+        for (String key : peerList.keySet()) {
+            queuePacket(key, bytes.duplicate());
         }
     }
 
@@ -415,6 +417,7 @@ public class WifiP2pControl {
         startDeviceDiscovery();
         checkLostPeers();
         WiFiApplication.context.registerReceiver(receiver,intentFilter);
+        addServiceRequest();
         setServiceDiscoveryTimer();
         WiFiApplication.context.setSID(localSID); // For Debugging
     }
@@ -423,7 +426,7 @@ public class WifiP2pControl {
         serviceDiscoveryTimer.cancel();
         clearLocalServices();
         clearServiceRequests();
-        peerMap.clear();
+        peerList.clear();
         WiFiApplication.context.unregisterReceiver(receiver);
         stopDeviceDiscovery();
         checkLastSeenPeer.cancel();
@@ -436,7 +439,7 @@ public class WifiP2pControl {
             sendBroadcast(packet);
         } else {
             String hexRemoteAddress = bytesToHexString(remoteAddress);
-            if (peerMap.containsKey(hexRemoteAddress)) {
+            if (peerList.containsKey(hexRemoteAddress)) {
                 Log.d(TAG,"Wifi-P2P: Sending Packet to " + hexRemoteAddress);
                 queuePacket(hexRemoteAddress, packet);
             } else {
@@ -512,16 +515,16 @@ public class WifiP2pControl {
             if (peer.deviceName.matches(DEVICE_NAME_PREFIX + "[[0-9][a-f]]{16}")) {
                 servalPeers++;
                 remoteSID = peer.deviceName.substring(6);
-                if (!peerMap.containsKey(remoteSID)) {
-                    peerMap.put(remoteSID,new WifiP2pPeer());
+                if (!peerList.containsKey(remoteSID)) {
+                    peerList.put(remoteSID,new WifiP2pPeer());
                     Log.d(TAG,"New Peer Found: " + remoteSID +" (" + peer.deviceAddress + ")");
                 } else {
-                    peerMap.get(remoteSID).resetLastSeen();
+                    peerList.get(remoteSID).resetLastSeen();
                 }
             }
         }
         Log.d(TAG, " Serval Peers: " + servalPeers + "/"  + wifiPeers);
-        WiFiApplication.context.setPeers(peerMap.keySet()); // For Debugging
+        WiFiApplication.context.setPeers(peerList.keySet()); // For Debugging
     }
 
     private void checkLostPeers() {
@@ -531,14 +534,14 @@ public class WifiP2pControl {
             @Override
             public void run() {
                 //Log.d(TAG,"Checking for lost peers");
-                for(String kp : peerMap.keySet()){
+                for(String kp : peerList.keySet()){
                     //Log.d(TAG,"Current time" + System.nanoTime());
-                    //Log.d(TAG,"Peer time" + peerMap.get(kp).getLastSeen());
-                    if ((System.nanoTime() - peerMap.get(kp).getLastSeen()) >= expiretime){
+                    //Log.d(TAG,"Peer time" + peerList.get(kp).getLastSeen());
+                    if ((System.nanoTime() - peerList.get(kp).getLastSeen()) >= expiretime){
                         Log.d(TAG,"Deleting peer :" + kp);
                         //This can stay as it is it will not introduce errors but we have to decide
-                        removeServiceSet(peerMap.get(kp).getServiceSet());
-                        peerMap.remove(kp);
+                        removeServiceSet(peerList.get(kp).getServiceSet());
+                        peerList.remove(kp);
                     }
                 }
             }

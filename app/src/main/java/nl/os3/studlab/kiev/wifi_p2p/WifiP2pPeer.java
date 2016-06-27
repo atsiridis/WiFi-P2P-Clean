@@ -10,6 +10,7 @@ import java.util.Collection;
 public class WifiP2pPeer {
     private final String TAG = "OS3";
     private final int BUFFER_SIZE = 65536;
+    private final int BUFFER_THRESH = 512;
     private ByteBuffer sendBuffer = ByteBuffer.allocate(BUFFER_SIZE);
     private ByteBuffer recvBuffer = ByteBuffer.allocate(BUFFER_SIZE);
     private int seqNumber = 0;
@@ -21,6 +22,11 @@ public class WifiP2pPeer {
     WifiP2pPeer() {
         resetLastSeen();
         firstSeen = System.nanoTime(); // For Throughput Measurement
+    }
+
+    /* Returns true is the send buffers is over the buffer full threshold */
+    public boolean isFull() {
+        return (sendBuffer.position() >= BUFFER_THRESH);
     }
 
     public void resetLastSeen() {

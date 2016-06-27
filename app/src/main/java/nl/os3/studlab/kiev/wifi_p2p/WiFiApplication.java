@@ -18,7 +18,7 @@ public class WiFiApplication extends Application {
     private Random randomGenerator = new Random();
     private final int ERROR_UNSPECIFIED = 500;
     private final int MAX_PACKET_SIZE = 1500;
-    private final int MIN_PACKET_SIZE = 6;
+    private final int MIN_PACKET_SIZE = 8;
     public WifiP2pControl wifiP2pControl;
     public static WiFiApplication context;
     private WiFiActivity activity;
@@ -41,17 +41,22 @@ public class WiFiApplication extends Application {
         //setTimer();
     }
 
-    private void setTimer() {
+    public void setTimer() {
         broadcastTimer = new Timer();
         broadcastTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (numBroadCasts < 100) {
-                    sendBroadcast();
-                    numBroadCasts++;
-                }
+                sendRandomTimestampedPacket();
             }
-        },60000,5000);
+        },500,500);
+    }
+
+    public void sendRandomTimestampedPacket() {
+        byte[] bytes = generateRandomBytes(8);
+        ByteBuffer packet = ByteBuffer.wrap(bytes);
+        packet.putLong(0,System.currentTimeMillis());
+        Log.d(TAG,"Broadcasting Packet, Len: " + bytes.length + ", md5sum[" + md5sum(bytes) + "]");
+        wifiP2pControl.sendPacket(null, packet);
     }
 
     public void sendTest(String remoteSID) {
@@ -70,10 +75,18 @@ public class WiFiApplication extends Application {
         wifiP2pControl.sendPacket(null, packet);
     }
 
-    public void receivedPacket(byte[] remoteAddress, byte[] packet){
+    public void receivedPacket(byte[] remoteAddress, byte[] bytes){
+        int size = bytes.length;
+        ByteBuffer packet = ByteBuffer.wrap(bytes);
+        long sentTime = packet.getLong(0);
+        long recvTime = System.currentTimeMillis();
+        long delay = recvTime - sentTime;
+
+        Log.d(TAG + "X","Sent: " + sentTime + ", Recv: " + recvTime + ", Delta: " + delay + ", Size: " + size);
+
         Log.d(TAG,"Packet Received From: " + bytesToHexString(remoteAddress)
-                + ", Len: " + packet.length
-                + ", md5sum[" + md5sum(packet) + "]");
+                + ", Len: " + bytes.length
+                + ", md5sum[" + md5sum(bytes) + "]");
     }
 
     public void setActivity(WiFiActivity activity) {

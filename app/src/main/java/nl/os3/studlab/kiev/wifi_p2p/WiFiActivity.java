@@ -53,7 +53,8 @@ public class WiFiActivity extends AppCompatActivity {
     }
 
     public void sendBroadcast(View v) {
-        app.sendBroadcast();
+        //app.sendBroadcast();
+        app.setTimer();
     }
 
     public void exit(View view)
