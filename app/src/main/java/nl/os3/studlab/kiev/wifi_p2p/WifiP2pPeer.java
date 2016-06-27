@@ -76,7 +76,7 @@ public class WifiP2pPeer {
         recvBuffer.put(data, offset, count);
         ackNumber += count;
         float tp = ackNumber / ((System.nanoTime() - firstSeen) / 1_000_000_000F);
-        Log.d(TAG, String.format("Throughput: %.3f", tp));
+        Log.d(TAG, String.format("Throughput: %.3f   Acknumber: %d    Time: %.3f", tp , ackNumber, (System.nanoTime() - firstSeen) / 1_000_000_000F));
     }
 
     public byte[] getPacket() {

@@ -27,6 +27,7 @@ public class WiFiApplication extends Application {
     private String localSID = "";
     private Collection peers = new ArrayList();
 
+
     @Override
     public void onCreate() {
         super.onCreate();

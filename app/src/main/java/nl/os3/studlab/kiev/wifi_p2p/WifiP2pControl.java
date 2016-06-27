@@ -22,6 +22,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -162,6 +164,7 @@ public class WifiP2pControl {
         byte[] packet = peer.getPacket();
         while (packet != null) {
             try {
+                Log.d(TAG,remoteSID + " -> [" + md5sum(packet) + "](" + packet.length + ") Time:"+ System.nanoTime() );
                 receivedPacket(hexStringToBytes(remoteSID), packet);
             } catch (IOException e) {
                 Log.e(TAG, e.getMessage(), e);
@@ -290,10 +293,25 @@ public class WifiP2pControl {
     private void queuePacket(String remoteSID, ByteBuffer packet) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
         //Log.d(TAG, "Queuing Packet(" + packet.remaining() + ") to " + remoteSID);
+        int count = packet.remaining();
+        int offset = packet.position();
+        byte[] bytes = new byte[count];
+        for (int i = 0; i < count; i++) {
+            bytes[i] = packet.get(offset + i);
+        }
+        Log.d(TAG, remoteSID + " <- [" + md5sum(bytes) + "](" + bytes.length + ") Time:"+ System.nanoTime() );
         peer.queuePacket(packet);
         updatePost(remoteSID);
     }
-
+    private String md5sum(byte[] bytes) {
+        try {
+            MessageDigest digester = MessageDigest.getInstance("MD5");
+            return bytesToHexString(digester.digest(bytes));
+        } catch (NoSuchAlgorithmException e) {
+            Log.e(TAG,"MD5 Algorithm Unavailable: " + e);
+            return "";
+        }
+    }
     private void updatePost(String remoteSID) {
         WifiP2pPeer peer = peerMap.get(remoteSID);
         byte[] postData = peer.getPostData(MAX_BINARY_DATA_SIZE);
