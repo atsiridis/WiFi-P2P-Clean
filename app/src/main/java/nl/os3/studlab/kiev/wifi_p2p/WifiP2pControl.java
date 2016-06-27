@@ -407,7 +407,7 @@ public class WifiP2pControl {
 
     public void up() {
         WifiManager wifi = (WifiManager) WiFiApplication.context.getSystemService(Context.WIFI_SERVICE);
-        if (wifi.isWifiEnabled()){
+        if (!wifi.isWifiEnabled()){
             Log.d(TAG,"WiFi is off exitting");
             WiFiApplication.context.exit(0);
         }
